@@ -14,9 +14,11 @@
   -moz-osx-font-smoothing: grayscale;
 
   --color-active: rgb(255, 0, 110);
-	--color-bg: rgb(0,0,0);
-	--color-text: rgb(190,190,190);
-	--color-text-dark: rgb(99,99,99);
+	--color-bg: rgb(0, 0, 0);
+	--color-input-bg: rgb(25, 25, 25);
+	--color-border: rgb(77, 77, 77);
+	--color-text: rgb(190, 190, 190);
+	--color-text-dark: rgb(99, 99, 99);
 
 	background-color: var(--color-bg);
 	color: var(--color-text);
@@ -28,4 +30,54 @@
 	-webkit-box-sizing: border-box; /* Safari/Chrome, other WebKit */
 	-moz-box-sizing: border-box;    /* Firefox, other Gecko */
 	box-sizing: border-box;         /* Opera/IE 8+ */
+}
+
+body {
+  margin: 0;
+}
+
+input, button, select {
+  border: 1px var(--color-border) solid;
+	background-color: var(--color-input-bg);
+  text-align: center;
+	font-family: inherit;
+	font-size: inherit;
+	color: inherit;
+}
+
+option {
+	color: var(--color-text);
+}
+
+input[type='checkbox'], select, button {
+	cursor: pointer;
+}
+
+input:focus-visible, button:focus-visible, select:focus-visible {
+	border-color: var(--color-active);
+}
+
+input:disabled, button:disabled, select:disabled {
+	color: var(--color-text-dark);
+}
+
+button:hover:enabled, select:hover:enabled {
+	border-color: var(--color-active) !important;
+}
+
+button:active {
+  color: var(--color-active);
+}
+
+.App {
+  padding: 12px;
+  gap: 12px;
+  display: grid;
+  grid-template-columns: min(calc(100vh - 24px), calc(100vw - 24px - 300px)) auto;
+}
+
+@media (max-width: 600px) {
+  .App {
+    grid-template-columns: auto;
+  }
 }

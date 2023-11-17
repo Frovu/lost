@@ -1,14 +1,16 @@
 import { useState } from 'react';
+import Game from './Game';
 
 function App() {
-	const [count, setCount] = useState(0);
 
-	return (
-		<>
-			Hello, World!
-			<div onClick={() => setCount(c => c + 1)}>count: {count}</div>
-		</>
-	);
+	return <div className='App'>
+		<div style={{ aspectRatio: 1 }}>
+			<Game/>
+		</div>
+		<div>
+			<button>Press me</button>
+		</div>
+	</div>;
 }
 
 export default App;
