@@ -1,0 +1,102 @@
+{
+  "name": "lost",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@typescript-eslint/eslint-plugin": "^6.10.0",
+    "@typescript-eslint/parser": "^6.10.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "eslint": "^8.53.0",
+    "eslint-config-react-app": "^7.0.1",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.4",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app"
+    ],
+    "parserOptions": {
+      "ecmaVersion": "latest",
+      "sourceType": "module"
+    },
+    "rules": {
+      "space-in-parens": [
+        0,
+        "always"
+      ],
+      "object-curly-spacing": [
+        1,
+        "always"
+      ],
+      "no-multiple-empty-lines": [
+        1,
+        {
+          "max": 1,
+          "maxEOF": 0,
+          "maxBOF": 0
+        }
+      ],
+      "quotes": [
+        1,
+        "single",
+        "avoid-escape"
+      ],
+      "no-use-before-define": "off",
+      "@typescript-eslint/no-use-before-define": [
+        "error"
+      ],
+      "@typescript-eslint/semi": [
+        1,
+        "always"
+      ],
+      "semi": [
+        1,
+        "always"
+      ],
+      "prefer-const": 1,
+      "react/prefer-es6-class": 0,
+      "react/jsx-filename-extension": 0,
+      "react/no-array-index-key": [
+        1
+      ],
+      "no-undef": [
+        2
+      ],
+      "no-case-declarations": [
+        1
+      ],
+      "no-return-assign": [
+        1
+      ],
+      "no-param-reassign": [
+        1
+      ],
+      "no-shadow": [
+        1
+      ],
+      "no-underscore-dangle": [
+        0,
+        "always"
+      ],
+      "indent": "off",
+      "@typescript-eslint/indent": [
+        1,
+        "tab"
+      ]
+    }
+  }
+}

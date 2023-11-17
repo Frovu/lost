@@ -1,0 +1,31 @@
+:root {
+	--font: 'Roboto Mono', monospace;
+
+	font-size: 16px;
+	font-family: var(--font);
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  --color-active: rgb(255, 0, 110);
+	--color-bg: rgb(0,0,0);
+	--color-text: rgb(190,190,190);
+	--color-text-dark: rgb(99,99,99);
+
+	background-color: var(--color-bg);
+	color: var(--color-text);
+	color-scheme: dark;
+}
+
+* {
+	-ms-box-sizing: border-box;
+	-webkit-box-sizing: border-box; /* Safari/Chrome, other WebKit */
+	-moz-box-sizing: border-box;    /* Firefox, other Gecko */
+	box-sizing: border-box;         /* Opera/IE 8+ */
+}
