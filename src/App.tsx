@@ -7,9 +7,7 @@ function App() {
 		<div style={{ aspectRatio: 1 }}>
 			<Game/>
 		</div>
-		<div>
-			<button>Press me</button>
-		</div>
+		<div className='container'></div>
 	</div>;
 }
 
