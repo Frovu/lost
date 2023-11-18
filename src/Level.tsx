@@ -59,7 +59,7 @@ async function generateLevel() {
 	initTexture();
 	const delay = 1000 / size;
 
-	const grid = new Uint8ClampedArray(size * size).fill(16);
+	const grid = new Uint8ClampedArray(size * size).fill(0);
 	const animate = () => {
 		useLevelState.setState(st => ({ ...st, grid }));
 		render();
@@ -69,7 +69,7 @@ async function generateLevel() {
 	
 	if (type === 'perlin noise')
 		perlin.seed();
-	const res = Math.max(2, size / resolution); 
+	const res = Math.max(2, (size-1) / resolution); 
 	const gen = ((): ((x: number, y: number) => void) => {
 		switch (type) {
 			case 'gradient':
@@ -156,8 +156,8 @@ export function Level() {
 	}, [size, type, pow, multi, resolution, set]);
 	
 	return <>
-		<mesh scale={8}>
-			<planeGeometry args={[64, 64]}/>
+		<mesh scale={1}>
+			<planeGeometry args={[512, 512]}/>
 			<meshBasicMaterial map={texture} transparent/>
 		</mesh>
 	</>;

@@ -76,7 +76,6 @@ label:has(input[type='checkbox']):hover {
 	text-decoration: underline;
 }
 
-
 .App {
   padding: 12px;
   gap: 12px;
@@ -84,8 +83,8 @@ label:has(input[type='checkbox']):hover {
   grid-template-columns: min(calc(100vh - 24px), calc(100vw - 24px - 640px)) auto;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 1000px) {
   .App {
-    grid-template-columns: auto;
+    grid-template-columns: 100%;
   }
 }
