@@ -1,17 +1,19 @@
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas } from '@react-three/fiber';
 import { Level } from './Level';
-
-function Camera() {
-	const state = useThree();
-	const zoom = state.size.width / 640 + .1;
-	state.camera.zoom = zoom;
-	return null;
-}
+import { useLevelState } from './level';
 
 export default function Game() {
-	return <Canvas camera={{ position: [0, 0, 1] }} orthographic onContextMenu={e => e.preventDefault()}>
-		<Camera/>
-		<ambientLight intensity={.1}/>
+	const { size } = useLevelState();
+
+	return <Canvas camera={{ position: [0, 0, 255] }} flat orthographic onContextMenu={e => e.preventDefault()}>
 		<Level/>
+		<mesh position={[size / 3, size / 3, 0]}>
+			<circleGeometry args={[2]}/>
+			<meshBasicMaterial color='magenta'/>
+		</mesh>
+		<mesh position={[-size / 3, -size / 3, 0]}>
+			<circleGeometry args={[2]}/>
+			<meshBasicMaterial color='rgb(0,255,0)'/>
+		</mesh>
 	</Canvas>;
 }
