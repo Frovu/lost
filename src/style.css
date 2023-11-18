@@ -37,12 +37,13 @@ body {
 }
 
 input, button, select {
-  border: 1px var(--color-border) solid;
+	border: 1px var(--color-border) solid;
 	background-color: var(--color-input-bg);
-  text-align: center;
+	text-align: center;
 	font-family: inherit;
 	font-size: inherit;
 	color: inherit;
+	outline: none;
 }
 
 option {
@@ -73,7 +74,7 @@ button:active {
   padding: 12px;
   gap: 12px;
   display: grid;
-  grid-template-columns: min(calc(100vh - 24px), calc(100vw - 24px - 300px)) auto;
+  grid-template-columns: min(calc(100vh - 24px), calc(100vw - 24px - 640px)) auto;
 }
 
 @media (max-width: 600px) {
