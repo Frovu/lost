@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import Game from './Game';
 
 function App() {
-
 	return <div className='App'>
 		<div style={{ aspectRatio: 1 }}>
 			<Game/>
