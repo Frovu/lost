@@ -3,16 +3,21 @@ import { useEffect } from 'react';
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { perlin } from './perlin';
 
 const typeOptions = ['gradient', 'white noise', 'perlin noise'] as const;
 
 const defaultState = {
 	type: 'white noise' as typeof typeOptions[number],
 	isGenerating: false,
+	animate: true,
+	resolution: 8,
+	pow: 8,
+	multi: 32,
 	size: 128,
 	texture: null as null | THREE.DataTexture,
 	textureData: null as null | Uint8ClampedArray,
-	grid: null as null | Uint8Array
+	grid: null as null | Uint8ClampedArray
 };
 type LevelState = typeof defaultState & {
 	initTexture: () => void,
@@ -27,9 +32,9 @@ const useLevelState = create<LevelState>()(persist((set, get) => ({
 		const { grid, size, texture, textureData } = get();
 		if (!grid || !textureData) return;
 		for (let i = 0; i < size * size; ++i) {
-			const val = (grid[i] === 255 ? 255 : -Math.log10(-grid[i] / 255 + 1)) * 256;
+			const val = (grid[i] === 255 ? 2 : -Math.log10(-grid[i] / 255 + 1)) * 256;
 			textureData[i * 2] = val * 2;
-			textureData[i * 2 + 1] = val / 3;
+			textureData[i * 2 + 1] = val / 4;
 		}
 		texture!.needsUpdate = true; 
 	},
@@ -44,24 +49,41 @@ const useLevelState = create<LevelState>()(persist((set, get) => ({
 	}
 }), {
 	name: 'and I become lost',
-	partialize: ({ type, size }) => ({ type, size })
+	partialize: ({ type, size, animate, pow, multi, resolution }) => ({ type, size, animate, pow, multi, resolution })
 }));
 
 async function generateLevel() {
-	const { size, type, render, initTexture } = useLevelState.getState();
+	const { size, type, pow, multi, resolution, animate: animateEnabled,
+		render, initTexture }= useLevelState.getState();
 	useLevelState.setState(st => ({ ...st, isGenerating: true }));
 	initTexture();
 	const delay = 1000 / size;
 
-	const grid = new Uint8Array(size * size).fill(16);
+	const grid = new Uint8ClampedArray(size * size).fill(16);
 	const animate = () => {
 		useLevelState.setState(st => ({ ...st, grid }));
-		render(); return new Promise(res => setTimeout(res, delay)); };
-	await animate();
-
-	const gen: (x: number, y: number) => void = type === 'gradient'
-		? (x, y) => { grid[y * size + x] = y / (size - 1) * x / (size - 1) * 254; }
-		: (x, y) => { grid[y * size + x] = Math.min(255, Math.random() * 256 + 8); };
+		render();
+		return new Promise(res => setTimeout(res, delay)); };
+	if (animateEnabled)
+		await animate();
+	
+	if (type === 'perlin noise')
+		perlin.seed();
+	const res = Math.max(2, size / resolution); 
+	const gen = ((): ((x: number, y: number) => void) => {
+		switch (type) {
+			case 'gradient':
+				return (x, y) => {
+					grid[y * size + x] = y / (size - 1) * x / (size - 1) * 255; };
+			case 'white noise':
+				return (x, y) => {
+					grid[y * size + x] = Math.min(255, Math.random() * 256 + 8); };
+			case 'perlin noise':
+				return (x, y) => {
+					const val = perlin.get(x / res, y / res);
+					grid[y * size + x] = (Math.pow(val + 1, pow)) * multi; };
+		}
+	})();
 	// const gen = (x: number, y: number) => { grid[y * size + x] = Math.random() * 500; };
 	const half = size / 2;
 	const sides = [[0, -1], [1, 0], [0, 1], [-1, 0]];
@@ -76,7 +98,8 @@ async function generateLevel() {
 				const ay = y + i * hor;
 				gen(ax, ay);
 			}
-			await animate();
+			if (animateEnabled)
+				await animate();
 			const state = useLevelState.getState();
 			if (!state.isGenerating)
 				return;
@@ -91,24 +114,35 @@ async function generateLevel() {
 }
 
 export function LevelControls () {
-	const { size, type, set, isGenerating } = useLevelState();
+	const { size, pow, multi, type, animate, isGenerating, resolution, set } = useLevelState();
 
-	return <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+	return <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
 		<button style={{ width: 128, color: isGenerating ? 'var(--color-active)' : 'unset' }}
 			onClick={() => isGenerating ? set('isGenerating', false) : generateLevel()}>
 				GENERAT{isGenerating ? 'ING' : 'E'}</button>
-		<label>Size:<input style={{ marginLeft: 4, width: 72 }} type='number' min='16' max='1024' step='16'
+		<label>Animate<input type='checkbox' checked={animate} onChange={e => set('animate', e.target.checked)}/></label>
+		<label>Size:<input style={{ marginLeft: 4, width: 72 }} type='number' min='16' max='512' step='16'
 			value={size} onChange={e => set('size', e.target.valueAsNumber)}/></label>
 		<label>Type:<select style={{ marginLeft: 4, width: 144 }}
 			value={type} onChange={e => set('type', e.target.value as any)}>
 			{typeOptions.map(o => <option key={o} value={o}>{o}</option>)}	
 		</select></label>
+		{type === 'perlin noise' && <>
+			<div style={{ flexBasis: '100%' }}></div>
+			<label>power=<input style={{ marginLeft: 2, width: 64 }} type='number' min='1' max='64' step='1'
+				value={pow} onChange={e => set('pow', e.target.valueAsNumber)}/></label>
+			<label>multi=<input style={{ marginLeft: 2, width: 64 }} type='number' min='4' max='512' step='4'
+				value={multi} onChange={e => set('multi', e.target.valueAsNumber)}/></label>
+			<label>resolution=<input style={{ marginLeft: 2, width: 64 }} type='number' min='1' max='64' step='1'
+				value={resolution} onChange={e => set('resolution', e.target.valueAsNumber)}/></label>
+			
+		</>}
 		
 	</div>;
 }
 
 export function Level() {
-	const { texture, size, type, set } = useLevelState();
+	const { texture, size, type, pow, multi, resolution, set } = useLevelState();
 
 	useEffect(() => {
 		const { isGenerating } = useLevelState.getState();
@@ -119,7 +153,7 @@ export function Level() {
 			const timeout = setTimeout(generateLevel, 100);
 			return () => clearTimeout(timeout);
 		}
-	}, [size, type, set]);
+	}, [size, type, pow, multi, resolution, set]);
 	
 	return <>
 		<mesh scale={8}>
