@@ -46,15 +46,16 @@ export function Level() {
 		}
 	}, [size, type, pow, multi, resolution, useVignette, set]);
 
+	const translate = size / 2 - .5;
 	useFrame(({ camera, size: canSize }) => {
 		const zoom = (canSize.width - 16) / size;
 		camera.zoom = zoom;
-		camera.lookAt(.5, .5, 0);
+		camera.lookAt(translate, translate, 0);
 		camera.updateProjectionMatrix();
 	});
 	
 	return <>
-		<mesh position={[.5, .5, -1]}>
+		<mesh position={[translate, translate, -1]}>
 			<planeGeometry args={[size, size]}/>
 			<meshBasicMaterial map={texture} transparent/>
 		</mesh>

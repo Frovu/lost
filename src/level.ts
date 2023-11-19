@@ -17,6 +17,7 @@ const defaultState = {
 	size: 128,
 	texture: null as null | THREE.DataTexture,
 	textureData: null as null | Uint8ClampedArray,
+	overlayGrid: null as null | Uint8ClampedArray,
 	grid: null as null | Uint8ClampedArray
 };
 
@@ -24,6 +25,11 @@ export type LevelState = typeof defaultState & {
 	initTexture: () => void,
 	render: () => void,
 	set: <T extends keyof typeof defaultState>(k: T, val: typeof defaultState[T]) => void
+};
+
+export const animatePathfinding = () => {
+
+	return new Promise(res => setTimeout(res, 50));
 };
 
 export const useLevelState = create<LevelState>()(persist((set, get) => ({

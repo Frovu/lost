@@ -16,10 +16,10 @@ const nodeDefaults = {
 	parent: null
 };
 
-function buildPath(target: Node, path=[]): Node[] {
+function buildPath(target: Node, path: Node[]=[]): Node[] {
 	if (!target.parent)
-		return path;
-	return buildPath(target.parent).concat(path);
+		return [target];
+	return buildPath(target.parent).concat(target);
 }
 
 function heuristic(pos: Position, target: Position) {
@@ -42,7 +42,7 @@ export default class Astar implements Pathfinder{
 		const { grid, opts } = this;
 		const target = grid[targetPos.x][targetPos.y];
 		const start = grid[startPos.x][startPos.y];
-		start.h = heuristic(start, target);
+		start.g = 0;
 
 		const queue = MinPriorityQueue.fromArray<Node>([start], node => node.f);
 
