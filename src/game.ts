@@ -36,9 +36,9 @@ export function* neighbors<T extends NodeBase>(grid: T[][], node: T, opts: Pathf
 	const r = 1;
 	const { size } = opts;
 	const { x, y } = node;
-	for (let i = Math.max(0, x - r); i < Math.min(size, x + r + 1); ++i) {
-		for (let j = Math.max(0, y - r); j < Math.min(size, y + r + 1); ++j) {
-			if (i === x && j === y)
+	for (let i = Math.max(0, y - r); i < Math.min(size, y + r + 1); ++i) {
+		for (let j = Math.max(0, x - r); j < Math.min(size, x + r + 1); ++j) {
+			if (j === x && i === y)
 				continue;
 			const cur = grid[i][j];
 			if (cur.cost >= 255)

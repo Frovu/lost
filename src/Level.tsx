@@ -27,13 +27,12 @@ export function Level() {
 	}, [grid, size, texture, textureData]);
 
 	useEffect(() => {
-		if (!overlayGrid) return;
 		for (let i = 0; i < size * size; ++i) {
-			const v = overlayGrid[i];
+			const v = overlayGrid?.[i] ?? 0;
 			overlayTextureData[i * 4] = v === 1 ? 255 : 0;
-			overlayTextureData[i * 4 + 1] = 0;
-			overlayTextureData[i * 4 + 2] = 0;
-			overlayTextureData[i * 4 + 3] = 128;
+			overlayTextureData[i * 4 + 1] = v === 3 ? 255 : 0;
+			overlayTextureData[i * 4 + 2] = v === 2 ? 255 : 0;
+			overlayTextureData[i * 4 + 3] = v === 0 ? 0 : 128;
 		}
 		overlayTexture.needsUpdate = true; 
 	}, [overlayGrid, size, overlayTexture, overlayTextureData]);
@@ -53,6 +52,7 @@ export function Level() {
 	useFrame(({ camera, size: canSize }) => {
 		const zoom = (canSize.width - 16) / size;
 		camera.zoom = zoom;
+		camera.position.set(translate, translate, 256);
 		camera.lookAt(translate, translate, 0);
 		camera.updateProjectionMatrix();
 	});

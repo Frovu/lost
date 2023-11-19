@@ -18,6 +18,8 @@ export default function Game() {
 		return () => astar.stop();
 	}, [grid, isGenerating, animate, size]);
 
+	useEffect(() => { if (isGenerating) setPath(null); }, [isGenerating])
+
 	const pathGeom = useMemo(() => {
 		return path && new THREE.BufferGeometry()
 			.setFromPoints(path.map(({ x, y }) => new THREE.Vector3(x, y, 0)));

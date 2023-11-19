@@ -21,7 +21,7 @@ export type LevelState = typeof defaultState & {
 	set: <T extends keyof typeof defaultState>(k: T, val: typeof defaultState[T]) => void
 };
 
-export const animatePathfinding = (grid: Uint8ClampedArray) => {
+export const animatePathfinding = (grid: Uint8ClampedArray | null) => {
 	useLevelState.setState(st => ({ ...st, overlayGrid: grid }));
 	return new Promise(res => setTimeout(res, 1));
 };

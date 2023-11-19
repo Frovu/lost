@@ -17,7 +17,7 @@ const nodeDefaults = {
 	parent: null
 };
 
-function buildPath(target: Node, path: Node[]=[]): Node[] {
+function buildPath(target: Node): Node[] {
 	if (!target.parent)
 		return [target];
 	return buildPath(target.parent).concat(target);
@@ -49,26 +49,25 @@ export default class Astar implements Pathfinder{
 		start.g = 0;
 
 		const queue = MinPriorityQueue.fromArray<Node>([start], node => node.f);
+		const meta = new Uint8ClampedArray(opts.size ** 2);
 
 		while (queue.front()) {
 
 			const current = queue.pop();
 
-			if (current === target)
+			if (current === target || this.stopFlag) {
+				animatePathfinding(null);
 				return buildPath(current);
-			
-			if (this.stopFlag)
-				return buildPath(current);
-
-			if (opts.animate) {
-				const meta = new Uint8ClampedArray(opts.size ** 2).fill(0);
-				for (const { x, y } of queue.toArray())
-					meta[y * opts.size + x] = 1;
-				await animatePathfinding(meta);
 			}
 
+			if (opts.animate) {
+				meta.fill(0);
+				for (const { x, y } of queue.toArray())
+					meta[y * opts.size + x] = 1;
+				meta[current.y * opts.size + current.x] = 2;
+			}
+	
 			for (const node of neighbors(grid, current, opts)) {
-				
 				const tentativeG = current.g + computeCost(current, node);
 				const alreadyVisited = isFinite(node.g);
 
@@ -82,6 +81,11 @@ export default class Astar implements Pathfinder{
 
 					queue.push(node);
 				}
+
+				meta[node.y * opts.size + node.x] = 3;
+			}
+			if (opts.animate) {
+				await animatePathfinding(meta.slice());
 			}
 		}
 		return [];
