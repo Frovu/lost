@@ -5,15 +5,15 @@ import { useLevelState } from './level';
 export default function Game() {
 	const { size } = useLevelState();
 
-	return <Canvas camera={{ position: [0, 0, 255] }} flat orthographic onContextMenu={e => e.preventDefault()}>
+	return <Canvas camera={{ position: [.5, .5, 255] }} flat orthographic onContextMenu={e => e.preventDefault()}>
 		<Level/>
-		<mesh position={[size / 3, size / 3, 0]}>
-			<circleGeometry args={[2]}/>
+		<mesh position={[size/2, size/2, 0]}>
+			<boxGeometry args={[1, 1]}/>
 			<meshBasicMaterial color='magenta'/>
 		</mesh>
-		<mesh position={[-size / 3, -size / 3, 0]}>
-			<circleGeometry args={[2]}/>
-			<meshBasicMaterial color='rgb(0,255,0)'/>
+		<mesh position={[-size/2+1, -size/2+1, 0]}>
+			<boxGeometry args={[1, 1]}/>
+			<meshBasicMaterial color='cyan'/>
 		</mesh>
 	</Canvas>;
 }

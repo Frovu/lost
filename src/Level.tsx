@@ -14,7 +14,7 @@ export function LevelControls () {
 			<input type='checkbox' checked={animate} onChange={e => set('animate', e.target.checked)}/></label>
 		<label title='Apply map vignette'>Vign
 			<input type='checkbox' checked={useVignette} onChange={e => set('useVignette', e.target.checked)}/></label>
-		<label>Size:<input style={{ marginLeft: 4, width: 72 }} type='number' min='16' max='512' step='16'
+		<label>Size:<input style={{ marginLeft: 4, width: 64 }} type='number' min='16' max='512' step='16'
 			value={size} onChange={e => set('size', e.target.valueAsNumber)}/></label>
 		<label>Type:<select style={{ marginLeft: 4, width: 144 }}
 			value={type} onChange={e => set('type', e.target.value as any)}>
@@ -49,11 +49,12 @@ export function Level() {
 	useFrame(({ camera, size: canSize }) => {
 		const zoom = (canSize.width - 16) / size;
 		camera.zoom = zoom;
+		camera.lookAt(.5, .5, 0);
 		camera.updateProjectionMatrix();
 	});
 	
 	return <>
-		<mesh position={[0, 0, -1]}>
+		<mesh position={[.5, .5, -1]}>
 			<planeGeometry args={[size, size]}/>
 			<meshBasicMaterial map={texture} transparent/>
 		</mesh>
