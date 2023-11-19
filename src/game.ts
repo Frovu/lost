@@ -13,6 +13,7 @@ const defaultState = {
 };
 
 type GameState = typeof defaultState & {
+	
 };
 
 export interface PathfinderParams {

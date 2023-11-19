@@ -2,8 +2,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { perlin } from './perlin';
 
-import * as THREE from 'three';
-
 export const typeOptions = ['gradient', 'white noise', 'perlin noise'] as const;
 
 const defaultState = {
@@ -15,15 +13,11 @@ const defaultState = {
 	pow: 8,
 	multi: 32,
 	size: 128,
-	texture: null as null | THREE.DataTexture,
-	textureData: null as null | Uint8ClampedArray,
 	overlayGrid: null as null | Uint8ClampedArray,
 	grid: null as null | Uint8ClampedArray
 };
 
 export type LevelState = typeof defaultState & {
-	initTexture: () => void,
-	render: () => void,
 	set: <T extends keyof typeof defaultState>(k: T, val: typeof defaultState[T]) => void
 };
 
@@ -32,46 +26,22 @@ export const animatePathfinding = () => {
 	return new Promise(res => setTimeout(res, 50));
 };
 
-export const useLevelState = create<LevelState>()(persist((set, get) => ({
+export const useLevelState = create<LevelState>()(persist((set) => ({
 	...defaultState,
-	set: (k, val) => set(st => ({ ...st, [k]: val })),
-	render: () => {
-		const { grid, size, texture, textureData } = get();
-		if (!grid || !textureData) return;
-		for (let i = 0; i < size * size; ++i) {
-			const val = (grid[i] === 255 ? 2 : -Math.log10(-grid[i] / 255 + 1)) * 255;
-			textureData[i * 4] = 200;
-			textureData[i * 4 + 1] = 200;
-			textureData[i * 4 + 2] = 200;
-			textureData[i * 4 + 3] = val;
-		}
-		texture!.needsUpdate = true; 
-	},
-	initTexture: () => {
-		const { size, texture: oldTexture } = get();
-		if (oldTexture)
-			oldTexture.dispose();
-		const textureData = new Uint8ClampedArray(size * size * 4);
-		const texture = new THREE.DataTexture(textureData, size, size, THREE.RGBAFormat);
-		// texture.flipY = true;
-		set(st => ({ ...st, texture, textureData }));
-	}
+	set: (k, val) => set(st => ({ ...st, [k]: val }))
 }), {
 	name: 'and I become lost',
 	partialize: ({ type, size, animate, pow, multi, resolution }) => ({ type, size, animate, pow, multi, resolution })
 }));
 
 export async function generateLevel() {
-	const { size, type, pow, multi, resolution, useVignette, animate: animateEnabled,
-		render, initTexture }= useLevelState.getState();
+	const { size, type, pow, multi, resolution, useVignette, animate: animateEnabled } = useLevelState.getState();
 	useLevelState.setState(st => ({ ...st, isGenerating: true }));
-	initTexture();
 	const delay = 1000 / size;
 
 	const grid = new Uint8ClampedArray(size * size).fill(0);
 	const animate = () => {
-		useLevelState.setState(st => ({ ...st, grid }));
-		render();
+		useLevelState.setState(st => ({ ...st, grid: grid.slice() }));
 		return new Promise(res => setTimeout(res, delay)); };
 	if (animateEnabled)
 		await animate();

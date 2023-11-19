@@ -1,7 +1,73 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { useFrame } from '@react-three/fiber';
 import { useLevelState, generateLevel, typeOptions } from './level';
+
+import * as THREE from 'three';
+
+export function Level() {
+	const { grid, overlayGrid, size, type, pow, multi, resolution, useVignette, set } = useLevelState();
+
+	const textureData = useMemo(() => new Uint8ClampedArray(size * size * 4), [size]);
+	const overlayTextureData = useMemo(() => new Uint8ClampedArray(size * size * 4), [size]);
+
+	const texture = useMemo(() => new THREE.DataTexture(textureData, size, size, THREE.RGBAFormat), [textureData, size]);
+	const overlayTexture = useMemo(() => new THREE.DataTexture(overlayTextureData, size, size, THREE.RGBAFormat), [overlayTextureData, size]);
+
+	useEffect(() => {
+		if (!grid) return;
+		for (let i = 0; i < size * size; ++i) {
+			const val = (grid[i] === 255 ? 2 : -Math.log10(-grid[i] / 255 + 1)) * 255;
+			textureData[i * 4] = 200;
+			textureData[i * 4 + 1] = 200;
+			textureData[i * 4 + 2] = 200;
+			textureData[i * 4 + 3] = val;
+		}
+		texture.needsUpdate = true; 
+	}, [grid, size, texture, textureData]);
+
+	useEffect(() => {
+		if (!overlayGrid) return;
+		for (let i = 0; i < size * size; ++i) {
+			const v = overlayGrid[i];
+			overlayTextureData[i * 4] = v === 1 ? 255 : 0;
+			overlayTextureData[i * 4 + 1] = 0;
+			overlayTextureData[i * 4 + 2] = 0;
+			overlayTextureData[i * 4 + 3] = 128;
+		}
+		overlayTexture.needsUpdate = true; 
+	}, [overlayGrid, size, overlayTexture, overlayTextureData]);
+
+	useEffect(() => {
+		const { isGenerating } = useLevelState.getState();
+		if (!isGenerating) {
+			generateLevel();
+		} else {
+			set('isGenerating', false);
+			const timeout = setTimeout(generateLevel, 100);
+			return () => clearTimeout(timeout);
+		}
+	}, [size, type, pow, multi, resolution, useVignette, set]);
+
+	const translate = size / 2 - .5;
+	useFrame(({ camera, size: canSize }) => {
+		const zoom = (canSize.width - 16) / size;
+		camera.zoom = zoom;
+		camera.lookAt(translate, translate, 0);
+		camera.updateProjectionMatrix();
+	});
+	
+	return <>
+		<mesh position={[translate, translate, -2]}>
+			<planeGeometry args={[size, size]}/>
+			<meshBasicMaterial map={texture} transparent/>
+		</mesh>
+		<mesh position={[translate, translate, -1]}>
+			<planeGeometry args={[size, size]}/>
+			<meshBasicMaterial map={overlayTexture} transparent/>
+		</mesh>
+	</>;
+}
 
 export function LevelControls () {
 	const { size, pow, multi, type, animate, isGenerating, resolution, useVignette, set } = useLevelState();
@@ -30,34 +96,4 @@ export function LevelControls () {
 				value={resolution} onChange={e => set('resolution', e.target.valueAsNumber)}/></label>
 		</>}
 	</div>;
-}
-
-export function Level() {
-	const { texture, size, type, pow, multi, resolution, useVignette, set } = useLevelState();
-
-	useEffect(() => {
-		const { isGenerating } = useLevelState.getState();
-		if (!isGenerating) {
-			generateLevel();
-		} else {
-			set('isGenerating', false);
-			const timeout = setTimeout(generateLevel, 100);
-			return () => clearTimeout(timeout);
-		}
-	}, [size, type, pow, multi, resolution, useVignette, set]);
-
-	const translate = size / 2 - .5;
-	useFrame(({ camera, size: canSize }) => {
-		const zoom = (canSize.width - 16) / size;
-		camera.zoom = zoom;
-		camera.lookAt(translate, translate, 0);
-		camera.updateProjectionMatrix();
-	});
-	
-	return <>
-		<mesh position={[translate, translate, -1]}>
-			<planeGeometry args={[size, size]}/>
-			<meshBasicMaterial map={texture} transparent/>
-		</mesh>
-	</>;
 }
