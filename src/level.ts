@@ -7,8 +7,9 @@ import * as THREE from 'three';
 export const typeOptions = ['gradient', 'white noise', 'perlin noise'] as const;
 
 const defaultState = {
-	type: 'white noise' as typeof typeOptions[number],
+	type: 'perlin noise' as typeof typeOptions[number],
 	isGenerating: false,
+	useVignette: true,
 	animate: true,
 	resolution: 8,
 	pow: 8,
@@ -55,7 +56,7 @@ export const useLevelState = create<LevelState>()(persist((set, get) => ({
 }));
 
 export async function generateLevel() {
-	const { size, type, pow, multi, resolution, animate: animateEnabled,
+	const { size, type, pow, multi, resolution, useVignette, animate: animateEnabled,
 		render, initTexture }= useLevelState.getState();
 	useLevelState.setState(st => ({ ...st, isGenerating: true }));
 	initTexture();
@@ -72,18 +73,19 @@ export async function generateLevel() {
 	if (type === 'perlin noise')
 		perlin.seed();
 	const res = Math.max(2, (size-1) / resolution); 
-	const gen = ((): ((x: number, y: number) => void) => {
+	const vignette = useVignette ? (r: number) => 1 - Math.pow(r / size, 3) * 8 : () => 1;
+	const gen = ((): ((x: number, y: number, r: number) => void) => {
 		switch (type) {
 			case 'gradient':
 				return (x, y) => {
 					grid[y * size + x] = y / (size - 1) * x / (size - 1) * 255; };
 			case 'white noise':
-				return (x, y) => {
-					grid[y * size + x] = Math.min(255, Math.random() * 256 + 8); };
+				return (x, y, r) => {
+					grid[y * size + x] = Math.min(255, Math.random() * 256 + 8) * vignette(r); };
 			case 'perlin noise':
-				return (x, y) => {
+				return (x, y, r) => {
 					const val = perlin.get(x / res, y / res);
-					grid[y * size + x] = (Math.pow(val + 1, pow)) * multi; };
+					grid[y * size + x] = (Math.pow(val + 1, pow)) * multi * vignette(r); };
 		}
 	})();
 	// const gen = (x: number, y: number) => { grid[y * size + x] = Math.random() * 500; };
@@ -98,7 +100,7 @@ export async function generateLevel() {
 			for (let i = -r; i < r; ++i) {
 				const ax = x + i * ver + dx;
 				const ay = y + i * hor;
-				gen(ax, ay);
+				gen(ax, ay, r);
 			}
 			if (animateEnabled)
 				await animate();
@@ -108,8 +110,8 @@ export async function generateLevel() {
 		}
 	}
 	for (let i = 0; i < size; ++i) {
-		gen(i, 0);
-		gen(i, size - 1);
+		gen(i, 0, half - 1);
+		gen(i, size - 1, half - 1);
 	}
 	await animate();
 	useLevelState.setState(st => ({ ...st, isGenerating: false }));

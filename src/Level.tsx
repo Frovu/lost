@@ -4,13 +4,16 @@ import { useFrame } from '@react-three/fiber';
 import { useLevelState, generateLevel, typeOptions } from './level';
 
 export function LevelControls () {
-	const { size, pow, multi, type, animate, isGenerating, resolution, set } = useLevelState();
+	const { size, pow, multi, type, animate, isGenerating, resolution, useVignette, set } = useLevelState();
 
 	return <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
 		<button style={{ width: 128, color: isGenerating ? 'var(--color-active)' : 'unset' }}
 			onClick={() => isGenerating ? set('isGenerating', false) : generateLevel()}>
 				GENERAT{isGenerating ? 'ING' : 'E'}</button>
-		<label>Animate<input type='checkbox' checked={animate} onChange={e => set('animate', e.target.checked)}/></label>
+		<label title='Animate map generation'>Anim
+			<input type='checkbox' checked={animate} onChange={e => set('animate', e.target.checked)}/></label>
+		<label title='Apply map vignette'>Vign
+			<input type='checkbox' checked={useVignette} onChange={e => set('useVignette', e.target.checked)}/></label>
 		<label>Size:<input style={{ marginLeft: 4, width: 72 }} type='number' min='16' max='512' step='16'
 			value={size} onChange={e => set('size', e.target.valueAsNumber)}/></label>
 		<label>Type:<select style={{ marginLeft: 4, width: 144 }}
@@ -30,7 +33,7 @@ export function LevelControls () {
 }
 
 export function Level() {
-	const { texture, size, type, pow, multi, resolution, set } = useLevelState();
+	const { texture, size, type, pow, multi, resolution, useVignette, set } = useLevelState();
 
 	useEffect(() => {
 		const { isGenerating } = useLevelState.getState();
@@ -41,7 +44,7 @@ export function Level() {
 			const timeout = setTimeout(generateLevel, 100);
 			return () => clearTimeout(timeout);
 		}
-	}, [size, type, pow, multi, resolution, set]);
+	}, [size, type, pow, multi, resolution, useVignette, set]);
 
 	useFrame(({ camera, size: canSize }) => {
 		const zoom = (canSize.width - 16) / size;
