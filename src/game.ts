@@ -13,17 +13,19 @@ const defaultState = {
 };
 
 type GameState = typeof defaultState & {
-	
+
 };
 
 export interface PathfinderParams {
+	animate: boolean,
 	grid: Uint8ClampedArray,
 	size: number,
 }
 
 export interface Pathfinder {
 	init?: (params: PathfinderParams) => void,
-	findPath?: (position: Position, target: Position) => Position[],
+	stop?: () => void,
+	findPath?: (position: Position, target: Position) => Promise<Position[]>,
 };
 
 export const useGameState = create<GameState>()(set => ({

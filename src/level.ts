@@ -6,7 +6,7 @@ export const typeOptions = ['gradient', 'white noise', 'perlin noise'] as const;
 
 const defaultState = {
 	type: 'perlin noise' as typeof typeOptions[number],
-	isGenerating: false,
+	isGenerating: true,
 	useVignette: true,
 	animate: true,
 	resolution: 8,
@@ -21,9 +21,9 @@ export type LevelState = typeof defaultState & {
 	set: <T extends keyof typeof defaultState>(k: T, val: typeof defaultState[T]) => void
 };
 
-export const animatePathfinding = () => {
-
-	return new Promise(res => setTimeout(res, 50));
+export const animatePathfinding = (grid: Uint8ClampedArray) => {
+	useLevelState.setState(st => ({ ...st, overlayGrid: grid }));
+	return new Promise(res => setTimeout(res, 1));
 };
 
 export const useLevelState = create<LevelState>()(persist((set) => ({

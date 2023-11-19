@@ -1,5 +1,6 @@
 import { MinPriorityQueue } from '@datastructures-js/priority-queue';
 import { Pathfinder, PathfinderParams, Position, computeCost, neighbors } from '../game';
+import { animatePathfinding } from '../level';
 
 type Node = Position & {
 	cost: number,
@@ -29,6 +30,7 @@ function heuristic(pos: Position, target: Position) {
 export default class Astar implements Pathfinder{
 	opts: PathfinderParams;
 	grid: Node[][];
+	stopFlag: boolean=false;
 	 
 	constructor(opts: PathfinderParams) {
 		const { size, grid } = opts;
@@ -38,7 +40,9 @@ export default class Astar implements Pathfinder{
 				.map(x => ({ x, y, cost: grid[y * size + x], ...nodeDefaults })));
 	}
 
-	findPath(startPos: Position, targetPos: Position): Position[] {
+	stop() { this.stopFlag = true; }
+
+	async findPath(startPos: Position, targetPos: Position): Promise<Position[]> {
 		const { grid, opts } = this;
 		const target = grid[targetPos.x][targetPos.y];
 		const start = grid[startPos.x][startPos.y];
@@ -47,10 +51,21 @@ export default class Astar implements Pathfinder{
 		const queue = MinPriorityQueue.fromArray<Node>([start], node => node.f);
 
 		while (queue.front()) {
+
 			const current = queue.pop();
 
 			if (current === target)
 				return buildPath(current);
+			
+			if (this.stopFlag)
+				return buildPath(current);
+
+			if (opts.animate) {
+				const meta = new Uint8ClampedArray(opts.size ** 2).fill(0);
+				for (const { x, y } of queue.toArray())
+					meta[y * opts.size + x] = 1;
+				await animatePathfinding(meta);
+			}
 
 			for (const node of neighbors(grid, current, opts)) {
 				
