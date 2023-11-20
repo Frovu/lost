@@ -25,7 +25,7 @@ export interface PathfinderParams {
 export interface Pathfinder {
 	init?: (params: PathfinderParams) => void,
 	stop?: () => void,
-	findPath?: (position: Position, target: Position) => Promise<Position[]>,
+	findPath?: (position: Position, target: Position) => Promise<NodeBase[]>,
 };
 
 export const useGameState = create<GameState>()(set => ({
@@ -51,7 +51,7 @@ export function* neighbors<T extends NodeBase>(grid: T[][], node: T, opts: Pathf
 export function computeCost(a: NodeBase, b: NodeBase) {
 	// FIXME: if r != 1
 	const dist = (a.x === b.x || a.y === b.y) ? 1 : SQRT_2;
-	return dist + b.cost;
+	return dist + dist * b.cost / 64;
 }
 
 export const getCost = (p: Position) => {

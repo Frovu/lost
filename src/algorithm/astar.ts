@@ -7,6 +7,7 @@ type Node = Position & {
 	h: number,
 	g: number,
 	f: number,
+	visitCount: number,
 	parent: null | Node
 };
 
@@ -14,6 +15,7 @@ const nodeDefaults = {
 	h: Infinity,
 	f: Infinity,
 	g: Infinity,
+	visitCount: 0,
 	parent: null
 };
 
@@ -42,17 +44,17 @@ export default class Astar implements Pathfinder{
 
 	stop() { this.stopFlag = true; }
 
-	async findPath(startPos: Position, targetPos: Position): Promise<Position[]> {
+	async findPath(startPos: Position, targetPos: Position): Promise<Node[]> {
 		const { grid, opts } = this;
-		const target = grid[targetPos.x][targetPos.y];
-		const start = grid[startPos.x][startPos.y];
+		const target = grid[targetPos.y][targetPos.x];
+		const start = grid[startPos.y][startPos.x];
 		start.g = 0;
+		let c = 0;
 
 		const queue = MinPriorityQueue.fromArray<Node>([start], node => node.f);
 		const meta = new Uint8ClampedArray(opts.size ** 2);
 
 		while (queue.front()) {
-
 			const current = queue.pop();
 
 			if (current === target || this.stopFlag) {
@@ -60,21 +62,25 @@ export default class Astar implements Pathfinder{
 				return buildPath(current);
 			}
 
+			if (current.visitCount++ >= 3)
+				continue;
+
 			if (opts.animate) {
 				meta.fill(0);
 				for (const { x, y } of queue.toArray())
 					meta[y * opts.size + x] = 1;
-				meta[current.y * opts.size + current.x] = 2;
+				// meta[current.y * opts.size + current.x] = 2;
 			}
 	
 			for (const node of neighbors(grid, current, opts)) {
 				const tentativeG = current.g + computeCost(current, node);
 				const alreadyVisited = isFinite(node.g);
 
-				if (tentativeG < node.g) {
+				const betterBy = node.g - tentativeG;
+				if (betterBy > 1) {
 					node.parent = current;
 					node.g = tentativeG;
-					node.f = tentativeG + heuristic(node, target);
+					node.f = tentativeG + heuristic(node, target) * 1;
 
 					if (alreadyVisited)
 						queue.remove(({ x, y }) => node.x === x && node.y === y);
@@ -82,9 +88,9 @@ export default class Astar implements Pathfinder{
 					queue.push(node);
 				}
 
-				meta[node.y * opts.size + node.x] = 3;
+				// meta[node.y * opts.size + node.x] = 3;
 			}
-			if (opts.animate) {
+			if (opts.animate && c++ % 8 === 0) {
 				await animatePathfinding(meta.slice());
 			}
 		}

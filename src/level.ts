@@ -90,5 +90,9 @@ export async function generateLevel() {
 		gen(i, size - 1, half - 1);
 	}
 	await animate();
+	for (let i = 0; i < size ** 2; ++i) {
+		grid[i] = grid[i] > 200 ? 255 : grid[i];
+	}
+	await animate();
 	useLevelState.setState(st => ({ ...st, isGenerating: false }));
 }
