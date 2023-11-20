@@ -46,6 +46,7 @@ export default class Astar implements Pathfinder{
 
 	async findPath(startPos: Position, targetPos: Position): Promise<PathfindingResult> {
 		const { grid, opts } = this;
+		const hMulti = opts.state.heuristicMulti;
 		const target = grid[targetPos.y][targetPos.x];
 		const start = grid[startPos.y][startPos.x];
 		let current = start;
@@ -63,6 +64,7 @@ export default class Astar implements Pathfinder{
 			if (current === target || this.stopFlag) {
 				animatePathfinding(null);
 				return {
+					opts,
 					aborted: this.stopFlag,
 					path: buildPath(current),
 					nodesVisited: totalVisits,
@@ -82,14 +84,14 @@ export default class Astar implements Pathfinder{
 			}
 	
 			for (const node of neighbors(grid, current, opts)) {
-				const tentativeG = current.g + computeCost(current, node);
+				const tentativeG = current.g + computeCost(current, node, opts);
 				const alreadyVisited = isFinite(node.g);
 
 				const betterBy = node.g - tentativeG;
 				if (betterBy > 1) {
 					node.parent = current;
 					node.g = tentativeG;
-					node.f = tentativeG + heuristic(node, target);
+					node.f = tentativeG + heuristic(node, target) * hMulti;
 
 					if (alreadyVisited)
 						queue.remove(({ x, y }) => node.x === x && node.y === y);
@@ -105,6 +107,7 @@ export default class Astar implements Pathfinder{
 		}
 
 		return {
+			opts,
 			aborted: this.stopFlag,
 			path: buildPath(current),
 			nodesVisited: totalVisits,

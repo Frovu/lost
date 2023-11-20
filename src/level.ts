@@ -7,13 +7,13 @@ export const typeOptions = ['gradient', 'white noise', 'perlin noise'] as const;
 
 const defaultState = {
 	type: 'perlin noise' as typeof typeOptions[number],
-	isGenerating: true,
+	isGenerating: false,
 	useVignette: true,
 	animate: true,
-	resolution: 8,
-	pow: 8,
-	multi: 32,
-	size: 128,
+	resolution: 20,
+	pow: 16,
+	multi: 64,
+	size: 256,
 	overlayGrid: null as null | Uint8ClampedArray,
 	grid: null as null | Uint8ClampedArray
 };
@@ -38,7 +38,7 @@ export const useLevelState = create<LevelState>()(persist((set) => ({
 	}
 }), {
 	name: 'and I become lost',
-	partialize: ({ type, size, animate, pow, multi, resolution }) => ({ type, size, animate, pow, multi, resolution })
+	partialize: ({ type, size, animate, pow, multi, resolution, grid }) => ({ type, size, animate, pow, multi, resolution, grid })
 }));
 
 export async function generateLevel(animated=true) {
