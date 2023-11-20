@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import Astar from './algorithm/astar';
+import { useLevelState } from './level';
 
 const SQRT_2 = Math.sqrt(2);
 
@@ -6,14 +8,26 @@ export type Position = { x: number, y: number };
 
 export type NodeBase = Position & { cost: number };
 
-const defaultState = {
-	grid: null as null | Uint8ClampedArray,
-	size: 16,
+export type PathfindingResult = {
+	aborted: boolean,
+	path: NodeBase[],
+	nodesVisited: number,
+	timeConsumed: number,
+	at: number,
+};
 
+const defaultState = {
+	isPlaying: false,
+	heuristicMulti: 1,
+	costMulti: 4,
+	pathfinder: null as null | Pathfinder,
+	results: [] as PathfindingResult[]
 };
 
 type GameState = typeof defaultState & {
-
+	set: <T extends keyof typeof defaultState>(k: T, val: typeof defaultState[T]) => void,
+	addResult: (r: PathfindingResult) => void,
+	reset: () => void,
 };
 
 export interface PathfinderParams {
@@ -23,14 +37,27 @@ export interface PathfinderParams {
 }
 
 export interface Pathfinder {
-	init?: (params: PathfinderParams) => void,
-	stop?: () => void,
-	findPath?: (position: Position, target: Position) => Promise<NodeBase[]>,
+	stop: () => void,
+	findPath: (position: Position, target: Position) => Promise<PathfindingResult>,
 };
 
 export const useGameState = create<GameState>()(set => ({
-	...defaultState
+	...defaultState,
+	set: (k, val) => set(st => ({ ...st, [k]: val })),
+	addResult: (res) => set(st => ({ ...st, isPlaying: false, results: [...st.results, res] })),
+	reset: () => set(st => ({ ...st, results: [] })),
 }));
+
+export const play = () => useGameState.setState(state => {
+	state.pathfinder?.stop();
+	const { grid, size } = useLevelState.getState();
+	const { addResult } = state;
+	if (!grid) return state;
+	const pathfinder = new Astar({ grid, size, animate: true });
+	pathfinder.findPath({ x: 0, y: 0 }, { x: size-1, y: size-1 })
+		.then(res => !res?.aborted && addResult(res));
+	return { ...state, pathfinder, isPlaying: true };
+});
 
 export function* neighbors<T extends NodeBase>(grid: T[][], node: T, opts: PathfinderParams) {
 	const r = 1;
@@ -51,10 +78,5 @@ export function* neighbors<T extends NodeBase>(grid: T[][], node: T, opts: Pathf
 export function computeCost(a: NodeBase, b: NodeBase) {
 	// FIXME: if r != 1
 	const dist = (a.x === b.x || a.y === b.y) ? 1 : SQRT_2;
-	return dist + dist * b.cost / 64;
+	return dist + dist * b.cost / 32;
 }
-
-export const getCost = (p: Position) => {
-	const { grid, size } = useGameState.getState();
-	return grid![p.y * size + p.x];
-};

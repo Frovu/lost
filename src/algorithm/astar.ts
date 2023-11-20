@@ -1,5 +1,5 @@
 import { MinPriorityQueue } from '@datastructures-js/priority-queue';
-import { Pathfinder, PathfinderParams, Position, computeCost, neighbors } from '../game';
+import { Pathfinder, PathfinderParams, PathfindingResult, Position, computeCost, neighbors } from '../game';
 import { animatePathfinding } from '../level';
 
 type Node = Position & {
@@ -44,22 +44,31 @@ export default class Astar implements Pathfinder{
 
 	stop() { this.stopFlag = true; }
 
-	async findPath(startPos: Position, targetPos: Position): Promise<Node[]> {
+	async findPath(startPos: Position, targetPos: Position): Promise<PathfindingResult> {
 		const { grid, opts } = this;
 		const target = grid[targetPos.y][targetPos.x];
 		const start = grid[startPos.y][startPos.x];
+		let current = start;
 		start.g = 0;
-		let c = 0;
+		let totalVisits = 0;
 
 		const queue = MinPriorityQueue.fromArray<Node>([start], node => node.f);
 		const meta = new Uint8ClampedArray(opts.size ** 2);
 
 		while (queue.front()) {
-			const current = queue.pop();
+			current = queue.pop();
+
+			totalVisits++;
 
 			if (current === target || this.stopFlag) {
 				animatePathfinding(null);
-				return buildPath(current);
+				return {
+					aborted: this.stopFlag,
+					path: buildPath(current),
+					nodesVisited: totalVisits,
+					timeConsumed: 0,
+					at: Date.now()
+				};
 			}
 
 			if (current.visitCount++ >= 3)
@@ -80,7 +89,7 @@ export default class Astar implements Pathfinder{
 				if (betterBy > 1) {
 					node.parent = current;
 					node.g = tentativeG;
-					node.f = tentativeG + heuristic(node, target) * 1;
+					node.f = tentativeG + heuristic(node, target);
 
 					if (alreadyVisited)
 						queue.remove(({ x, y }) => node.x === x && node.y === y);
@@ -90,10 +99,17 @@ export default class Astar implements Pathfinder{
 
 				// meta[node.y * opts.size + node.x] = 3;
 			}
-			if (opts.animate && c++ % 8 === 0) {
+			if (opts.animate && totalVisits % 8 === 0) {
 				await animatePathfinding(meta.slice());
 			}
 		}
-		return [];
+
+		return {
+			aborted: this.stopFlag,
+			path: buildPath(current),
+			nodesVisited: totalVisits,
+			timeConsumed: 0,
+			at: Date.now()
+		};
 	};
 }

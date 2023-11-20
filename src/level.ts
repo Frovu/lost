@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { perlin } from './perlin';
+import { play, useGameState } from './game';
 
 export const typeOptions = ['gradient', 'white noise', 'perlin noise'] as const;
 
@@ -23,21 +24,29 @@ export type LevelState = typeof defaultState & {
 
 export const animatePathfinding = (grid: Uint8ClampedArray | null) => {
 	useLevelState.setState(st => ({ ...st, overlayGrid: grid }));
-	return new Promise(res => setTimeout(res, 1));
+	return new Promise(res => setTimeout(res, 0));
 };
 
 export const useLevelState = create<LevelState>()(persist((set) => ({
 	...defaultState,
-	set: (k, val) => set(st => ({ ...st, [k]: val }))
+	set: (k, val) => {
+		set(st => ({ ...st, [k]: val }));
+		if (['size', 'pow', 'multi', 'resolution'].includes(k))
+			generateLevel(false);
+		else if (['type'].includes(k))
+			generateLevel(true);
+	}
 }), {
 	name: 'and I become lost',
 	partialize: ({ type, size, animate, pow, multi, resolution }) => ({ type, size, animate, pow, multi, resolution })
 }));
 
-export async function generateLevel() {
-	const { size, type, pow, multi, resolution, useVignette, animate: animateEnabled } = useLevelState.getState();
+export async function generateLevel(animated=true) {
+	const { size, type, pow, multi, resolution, useVignette, animate: animateEn } = useLevelState.getState();
+	useGameState.getState().pathfinder?.stop();
 	useLevelState.setState(st => ({ ...st, isGenerating: true }));
-	const delay = 1000 / size;
+	const delay = 1000 / size - 4;
+	const animateEnabled = animated && animateEn;
 
 	const grid = new Uint8ClampedArray(size * size).fill(0);
 	const animate = () => {
@@ -64,7 +73,7 @@ export async function generateLevel() {
 					grid[y * size + x] = (Math.pow(val + 1, pow)) * multi * vignette(r); };
 		}
 	})();
-	// const gen = (x: number, y: number) => { grid[y * size + x] = Math.random() * 500; };
+	
 	const half = size / 2;
 	const sides = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 	for (let r = 1; r < half; ++r) {
@@ -95,4 +104,5 @@ export async function generateLevel() {
 	}
 	await animate();
 	useLevelState.setState(st => ({ ...st, isGenerating: false }));
+	play();
 }

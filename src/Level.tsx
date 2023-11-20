@@ -6,7 +6,7 @@ import { useLevelState, generateLevel, typeOptions } from './level';
 import * as THREE from 'three';
 
 export function Level() {
-	const { grid, overlayGrid, size, type, pow, multi, resolution, useVignette, set } = useLevelState();
+	const { grid, overlayGrid, size } = useLevelState();
 
 	const textureData = useMemo(() => new Uint8ClampedArray(size * size * 4), [size]);
 	const overlayTextureData = useMemo(() => new Uint8ClampedArray(size * size * 4), [size]);
@@ -38,15 +38,8 @@ export function Level() {
 	}, [overlayGrid, size, overlayTexture, overlayTextureData]);
 
 	useEffect(() => {
-		const { isGenerating } = useLevelState.getState();
-		if (!isGenerating) {
-			generateLevel();
-		} else {
-			set('isGenerating', false);
-			const timeout = setTimeout(generateLevel, 100);
-			return () => clearTimeout(timeout);
-		}
-	}, [size, type, pow, multi, resolution, useVignette, set]);
+		if (!grid) generateLevel();
+	}, [grid]);
 
 	const translate = size / 2 - .5;
 	useFrame(({ camera, size: canSize }) => {
