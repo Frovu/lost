@@ -26,8 +26,8 @@ function getrot1tion(x1: number, y1: number, x2: number, y2: number) {
 }
 
 export default function Examine() {
-	const { rotNumber } = useGameState();
-	const { grid, size } = useLevelState();
+	const { rotNumber, turningRadius: r } = useGameState();
+	const { size } = useLevelState();
 	const [target, setTarget] = useState<Position | null>(null);
 	const [start, setStart] = useState<Position>({ x: size / 2, y: size / 2, rot: 0 });
 
@@ -38,7 +38,6 @@ export default function Examine() {
 
 	const paths = useMemo(() => {
 		if (!start || !target) return null;
-		const { turningRadius: r, rotNumber } = useGameState.getState();
 		const a = start, b = target;
 		const dy = b.y - a.y, dx = b.x - a.x;
 
@@ -75,11 +74,10 @@ export default function Examine() {
 				p.arc(x2 - t2x, y2 - t2y, r, phi - side1 * PI/2 + rot180, rot2 - side1 * PI/2 + rot180, side2 < 0);
 
 				result.push(new THREE.BufferGeometry().setFromPoints(p.getPoints(32)));
-
 			}
 		}
 		return result;
-	}, [start, target]);
+	}, [start, target, rotNumber, r]);
 
 	return <>
 		<Level {...{

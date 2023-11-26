@@ -5,7 +5,8 @@ import * as THREE from 'three';
 import { computeCost, play, useGameState } from './game';
 
 export function GameControls() {
-	const { isPlaying, costMulti, heuristicMulti, animationSpeed, examineMode, results, set } = useGameState();
+	const { isPlaying, costMulti, heuristicMulti, animationSpeed,
+		rotNumber, examineMode, turningRadius, results, set } = useGameState();
 
 	const resultsWithCost = useMemo(() => results.map(res => {
 		const path = res.path;
@@ -25,7 +26,15 @@ export function GameControls() {
 		<label title='terrain cost multiplier'>cost*=<input style={{ marginLeft: 2, width: 64 }} type='number' min='1' max='64' step='1'
 			value={costMulti} onChange={e => set('costMulti', e.target.valueAsNumber)}/></label>
 	</div>
-	<div>
+	<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+		<label title='Player turning radius'>Radius
+			<input style={{ marginLeft: 2, width: 64 }} type='number' min='0' max='4' step='.1'
+				value={turningRadius} onChange={e => set('turningRadius', e.target.valueAsNumber)}/></label>
+		<label title='Number of possible stationary rotations'>Rot
+			<select style={{ marginLeft: 2 }}
+				value={rotNumber} onChange={e => set('rotNumber', parseInt(e.target.value))}>
+				{[4, 8, 12, 16, 32].map(n => <option key={n} value={n}>{n}</option>)}
+			</select></label>
 		<label title='Examine available paths and costs'>Examine
 			<input type='checkbox' checked={examineMode} onChange={e => set('examineMode', e.target.checked)}/></label>
 	</div>
