@@ -4,7 +4,7 @@ import { useLevelState } from './level';
 
 const SQRT_2 = Math.sqrt(2);
 
-export type Position = { x: number, y: number };
+export type Position = { x: number, y: number, rot: number };
 
 export type NodeBase = Position & { cost: number };
 
@@ -18,6 +18,9 @@ export type PathfindingResult = {
 };
 
 const defaultState = {
+	turningRadius: 2,
+	rotationsNumber: 8,
+	examineMode: false,
 	isPlaying: false,
 	animationSpeed: 4,
 	heuristicMulti: 1,
@@ -63,7 +66,7 @@ export const play = (force=true) => useGameState.setState(state => {
 	const { addResult } = state;
 	if (!grid) return state;
 	const pathfinder = new Astar({ state, grid, size, animate: true });
-	pathfinder.findPath({ x: 0, y: 0 }, { x: size-1, y: size-1 })
+	pathfinder.findPath({ x: 0, y: 0, rot: 0 }, { x: size-1, y: size-1, rot: 0 })
 		.then(res => !res?.aborted && addResult(res));
 	return { ...state, pathfinder, isPlaying: true };
 });

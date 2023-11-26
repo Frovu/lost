@@ -39,7 +39,7 @@ export default class Astar implements Pathfinder{
 		this.opts = opts;
 		this.grid = [...Array(size).keys()]
 			.map(y => [...Array(size).keys()]
-				.map(x => ({ x, y, cost: grid[y * size + x], ...nodeDefaults })));
+				.map(x => ({ x, y, cost: grid[y * size + x], rot: 0, ...nodeDefaults })));
 	}
 
 	stop() { this.stopFlag = true; }

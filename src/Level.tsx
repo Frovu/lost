@@ -1,11 +1,11 @@
 import { useEffect, useMemo } from 'react';
 
-import { useFrame } from '@react-three/fiber';
+import { MeshProps, useFrame } from '@react-three/fiber';
 import { useLevelState, generateLevel, typeOptions } from './level';
 
 import * as THREE from 'three';
 
-export function Level() {
+export function Level(callbacks: Partial<MeshProps>) {
 	const { grid, overlayGrid, size } = useLevelState();
 
 	const textureData = useMemo(() => new Uint8ClampedArray(size * size * 4), [size]);
@@ -55,7 +55,7 @@ export function Level() {
 			<planeGeometry args={[size, size]}/>
 			<meshBasicMaterial map={texture} transparent/>
 		</mesh>
-		<mesh position={[translate, translate, -1]}>
+		<mesh position={[translate, translate, -1]} {...callbacks}>
 			<planeGeometry args={[size, size]}/>
 			<meshBasicMaterial map={overlayTexture} transparent/>
 		</mesh>
@@ -73,7 +73,7 @@ export function LevelControls () {
 			<input type='checkbox' checked={animate} onChange={e => set('animate', e.target.checked)}/></label>
 		<label title='Apply map vignette'>Vign
 			<input type='checkbox' checked={useVignette} onChange={e => set('useVignette', e.target.checked)}/></label>
-		<label>Size:<input style={{ marginLeft: 4, width: 64 }} type='number' min='16' max='512' step='16'
+		<label>Size:<input style={{ marginLeft: 4, width: 64 }} type='number' min='8' max='512' step='16'
 			value={size} onChange={e => set('size', e.target.valueAsNumber)}/></label>
 		<label>Type:<select style={{ marginLeft: 4, width: 144 }}
 			value={type} onChange={e => set('type', e.target.value as any)}>

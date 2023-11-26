@@ -1,4 +1,3 @@
-import { Canvas } from '@react-three/fiber';
 import { Level } from './Level';
 import { useLevelState } from './level';
 import { useEffect, useMemo } from 'react';
@@ -6,7 +5,7 @@ import * as THREE from 'three';
 import { computeCost, play, useGameState } from './game';
 
 export function GameControls() {
-	const { isPlaying, costMulti, heuristicMulti, animationSpeed, results, set } = useGameState();
+	const { isPlaying, costMulti, heuristicMulti, animationSpeed, examineMode, results, set } = useGameState();
 
 	const resultsWithCost = useMemo(() => results.map(res => {
 		const path = res.path;
@@ -25,6 +24,10 @@ export function GameControls() {
 			value={heuristicMulti} onChange={e => set('heuristicMulti', e.target.valueAsNumber)}/></label>
 		<label title='terrain cost multiplier'>cost*=<input style={{ marginLeft: 2, width: 64 }} type='number' min='1' max='64' step='1'
 			value={costMulti} onChange={e => set('costMulti', e.target.valueAsNumber)}/></label>
+	</div>
+	<div>
+		<label title='Examine available paths and costs'>Examine
+			<input type='checkbox' checked={examineMode} onChange={e => set('examineMode', e.target.checked)}/></label>
 	</div>
 	<div style={{ color: 'var(--color-text-dark)', fontSize: 14 }}>
 		{resultsWithCost.map(({ cost, nodesVisited, at, opts }) =>
@@ -53,18 +56,15 @@ export default function Game() {
 	}), [results]);
 
 	return <>
-		{/* {path && <div style={{ position: 'absolute', top: 0, color: 'cyan' }}>cost: {cost.toFixed(1)}</div>} */}
-		<Canvas camera={{ position: [.5, .5, 255] }} flat orthographic onContextMenu={e => e.preventDefault()}>
-			<Level/>
-			<mesh position={[size-1, size-1, 0]}>
-				<boxGeometry args={[1, 1]}/>
-				<meshBasicMaterial color='magenta'/>
-			</mesh>
-			<mesh position={[0, 0, 0]}>
-				<boxGeometry args={[1, 1]}/>
-				<meshBasicMaterial color='cyan'/>
-			</mesh>
-			{paths}
-		</Canvas>
+		<Level/>
+		<mesh position={[size-1, size-1, 0]}>
+			<boxGeometry args={[1, 1]}/>
+			<meshBasicMaterial color='magenta'/>
+		</mesh>
+		<mesh position={[0, 0, 0]}>
+			<boxGeometry args={[1, 1]}/>
+			<meshBasicMaterial color='cyan'/>
+		</mesh>
+		{paths}
 	</>;
 }

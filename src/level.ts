@@ -104,5 +104,6 @@ export async function generateLevel(animated=true) {
 	}
 	await animate();
 	useLevelState.setState(st => ({ ...st, isGenerating: false }));
-	play();
+	if (!useGameState.getState().examineMode)
+		play();
 }
