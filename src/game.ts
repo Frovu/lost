@@ -7,6 +7,8 @@ const SQRT_2 = Math.sqrt(2);
 export type Coords = { x: number, y: number };
 export type Position = { x: number, y: number, rot: number };
 
+export const posEqual = (a: Position, b: Position) => a.x === b.x && a.y === b.y && a.rot === b.rot;
+
 export type NodeBase = Position & { cost: number };
 
 export type PathfindingResult = {
@@ -19,9 +21,10 @@ export type PathfindingResult = {
 };
 
 const defaultState = {
-	turningRadius: 2,
-	rotNumber: 4,
-	examineMode: false,
+	turningRadius: 1,
+	neighborsRadius: 2,
+	rotNumber: 16,
+	examineMode: true,
 	isPlaying: false,
 	animationSpeed: 4,
 	heuristicMulti: 1,
@@ -71,6 +74,36 @@ export const play = (force=true) => useGameState.setState(state => {
 		.then(res => !res?.aborted && addResult(res));
 	return { ...state, pathfinder, isPlaying: true };
 });
+
+export const distance = (a: Position, b: Position) =>
+	Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+
+// https://math.stackexchange.com/questions/719758/inner-tangent-between-two-circles-formula
+export function buildCurves(a: Position, b: Position, state?: GameState) {
+	const { turningRadius: r } = state ?? useGameState.getState();
+	const dist = distance(a, b);
+	const phi0 = Math.atan2(b.y - a.y, b.x - a.x);
+	const phi = phi0 + Math.asin(2 * r / dist) - Math.PI / 2;
+	const t1x = a.x + r * Math.cos(phi);
+	const t1y = a.y + r * Math.sin(phi);
+	const t2x = b.x + r * Math.cos(phi + Math.PI);
+	const t2y = b.y + r * Math.sin(phi + Math.PI);
+
+
+
+
+}
+
+export function neighborsFactory(state: GameState) {
+	const { turningRadius, neighborsRadius } = state;
+	for (let x = -neighborsRadius; x < neighborsRadius + 1; ++x) {
+		for (let y = -neighborsRadius; y < neighborsRadius + 1; ++y) {
+			if (x === 0 && y === 0)
+				continue;
+		}
+	}
+
+}
 
 export function* neighbors<T extends NodeBase>(grid: T[][], node: T, opts: PathfinderParams) {
 	const r = 1;
