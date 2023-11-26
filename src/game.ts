@@ -4,6 +4,7 @@ import { useLevelState } from './level';
 
 const SQRT_2 = Math.sqrt(2);
 
+export type Coords = { x: number, y: number };
 export type Position = { x: number, y: number, rot: number };
 
 export type NodeBase = Position & { cost: number };
@@ -19,7 +20,7 @@ export type PathfindingResult = {
 
 const defaultState = {
 	turningRadius: 2,
-	rotationsNumber: 8,
+	rotNumber: 4,
 	examineMode: false,
 	isPlaying: false,
 	animationSpeed: 4,
