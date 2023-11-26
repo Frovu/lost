@@ -1,5 +1,5 @@
 import { MinPriorityQueue } from '@datastructures-js/priority-queue';
-import { Pathfinder, PathfinderParams, PathfindingResult, Position, computeCost, neighbors } from '../game';
+import { Pathfinder, PathfinderParams, PathfindingResult, Position, computeCost, neighbors, useGameState } from '../game';
 import { animatePathfinding } from '../level';
 
 type Node = Position & {
@@ -101,7 +101,7 @@ export default class Astar implements Pathfinder{
 
 				// meta[node.y * opts.size + node.x] = 3;
 			}
-			if (opts.animate && totalVisits % 8 === 0) {
+			if (opts.animate && totalVisits % useGameState.getState().animationSpeed === 0) {
 				await animatePathfinding(meta.slice());
 			}
 		}

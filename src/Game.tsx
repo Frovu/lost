@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { computeCost, play, useGameState } from './game';
 
 export function GameControls() {
-	const { isPlaying, costMulti, heuristicMulti, results, set } = useGameState();
+	const { isPlaying, costMulti, heuristicMulti, animationSpeed, results, set } = useGameState();
 
 	const resultsWithCost = useMemo(() => results.map(res => {
 		const path = res.path;
@@ -19,6 +19,8 @@ export function GameControls() {
 	return <><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
 		<button style={{ width: 128, color: isPlaying ? 'var(--color-active)' : 'unset' }}
 			onClick={() => play()}>PLAY{isPlaying ? 'ING' : ''}</button>
+		<label title='animation speed'>speed*=<input style={{ marginLeft: 2, width: 64 }} type='number' min='8' max='256' step='8'
+			value={animationSpeed} onChange={e => set('animationSpeed', e.target.valueAsNumber)}/></label>
 		<label title='heuristic multiplier'>h*=<input style={{ marginLeft: 2, width: 64 }} type='number' min='1' max='64' step='.1'
 			value={heuristicMulti} onChange={e => set('heuristicMulti', e.target.valueAsNumber)}/></label>
 		<label title='terrain cost multiplier'>cost*=<input style={{ marginLeft: 2, width: 64 }} type='number' min='1' max='64' step='1'

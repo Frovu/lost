@@ -19,6 +19,7 @@ export type PathfindingResult = {
 
 const defaultState = {
 	isPlaying: false,
+	animationSpeed: 4,
 	heuristicMulti: 1,
 	costMulti: 4,
 	pathfinder: null as null | Pathfinder,
