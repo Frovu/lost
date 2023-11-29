@@ -44,37 +44,43 @@ export default function Examine() {
 		const rot1 = PI * 2 / rotNumber * a.rot;
 		const rot2 = PI * 2 / rotNumber * b.rot;
 
+		// check for straight line
+		const angle = (Math.atan2(dy, dx) + 2 * PI) % (2 * PI);
+		if (rot1 === rot2 && rot1 === angle) {
+			const p = new THREE.Path();
+			p.lineTo(dx, dy);
+			return [new THREE.BufferGeometry().setFromPoints(p.getPoints(32))];
+		}
+
 		const result = [];
 
-		for (const side1 of [-1, 1]) {
-			for (const side2 of [-1, 1]) {
-				const inner = side1 !== side2;
+		for (const [side1, side2] of [[-1, 1], [-1, -1], [1, 1], [1, -1]]) {
+			const inner = side1 !== side2;
 
-				const x1 = Math.cos(rot1 + side1 * PI / 2) * r;
-				const y1 = Math.sin(rot1 + side1 * PI / 2) * r;
-				const x2 = Math.cos(rot2 + side2 * PI / 2) * r + dx;
-				const y2 = Math.sin(rot2 + side2 * PI / 2) * r + dy;
+			const x1 = Math.cos(rot1 + side1 * PI / 2) * r;
+			const y1 = Math.sin(rot1 + side1 * PI / 2) * r;
+			const x2 = Math.cos(rot2 + side2 * PI / 2) * r + dx;
+			const y2 = Math.sin(rot2 + side2 * PI / 2) * r + dy;
 
-				const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-				if (inner && dist < 2 * r)
-					continue;
+			const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+			if (inner && dist < 2 * r)
+				continue;
 
-				const phi0 = Math.atan2(y2 - y1, x2 - x1);
-				const phi = phi0 + side1 * (inner ? Math.asin(2 * r / dist) : 0);
-		
-				const rot180 = (inner ? PI : 0);
-				// const t1x = a.x + r * Math.cos(phi);
-				// const t1y = a.y + r * Math.sin(phi);
-				const t2x = x2 + r * Math.cos(phi - side1 * PI / 2 + rot180);
-				const t2y = y2 + r * Math.sin(phi - side1 * PI / 2 + rot180);
+			const phi0 = Math.atan2(y2 - y1, x2 - x1);
+			const phi = phi0 + side1 * (inner ? Math.asin(2 * r / dist) : 0);
+	
+			const rot180 = (inner ? PI : 0);
+			// const t1x = a.x + r * Math.cos(phi);
+			// const t1y = a.y + r * Math.sin(phi);
+			const t2x = x2 + r * Math.cos(phi - side1 * PI / 2 + rot180);
+			const t2y = y2 + r * Math.sin(phi - side1 * PI / 2 + rot180);
 
-				const p = new THREE.Path();
-				p.arc(x1, y1, r, rot1 - side1 * PI/2, phi - side1 * PI/2, side1 < 0);
-				p.lineTo(t2x, t2y);
-				p.arc(x2 - t2x, y2 - t2y, r, phi - side1 * PI/2 + rot180, rot2 - side1 * PI/2 + rot180, side2 < 0);
+			const p = new THREE.Path();
+			p.arc(x1, y1, r, rot1 - side1 * PI/2, phi - side1 * PI/2, side1 < 0);
+			p.lineTo(t2x, t2y);
+			p.arc(x2 - t2x, y2 - t2y, r, phi - side1 * PI/2 + rot180, rot2 - side1 * PI/2 + rot180, side2 < 0);
 
-				result.push(new THREE.BufferGeometry().setFromPoints(p.getPoints(32)));
-			}
+			result.push(new THREE.BufferGeometry().setFromPoints(p.getPoints(32)));
 		}
 		return result;
 	}, [start, target, rotNumber, r]);
