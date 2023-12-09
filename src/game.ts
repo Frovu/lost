@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import Astar from './algorithm/astar';
 import { useLevelState } from './level';
+import { PathCurve, computeCurves } from './curves';
 
 const SQRT_2 = Math.sqrt(2);
 
@@ -79,14 +80,27 @@ export const distance = (a: Position, b: Position) =>
 	Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
 
 export function neighborsFactory(state: GameState) {
-	const { turningRadius, neighborsRadius } = state;
-	for (let x = -neighborsRadius; x < neighborsRadius + 1; ++x) {
-		for (let y = -neighborsRadius; y < neighborsRadius + 1; ++y) {
-			if (x === 0 && y === 0)
-				continue;
+	const { turningRadius, neighborsRadius, rotNumber } = state;
+	const masks: PathCurve[][] = Array(rotNumber).fill(null).map(() => []);
+	const rot180 = (r: number) => (r + rotNumber / 2) % rotNumber;
+
+	for (let rot0 = 0; rot0 < rotNumber; ++rot0) {
+		const pos0 = { x: 0, y: 0, rot: rot0 };
+		for (let x = -neighborsRadius; x < neighborsRadius + 1; ++x) {
+			for (let y = -neighborsRadius; y < neighborsRadius + 1; ++y) {
+				if (x === 0 && y === 0)
+					continue;
+				for (let rot = 0; rot < rotNumber; ++rot) {
+					const forward = computeCurves(pos0, { x, y, rot }, state);
+					const posMir = {...pos0, rot: rot180(rot0) };
+					const backward = computeCurves(posMir, { x, y, rot: rot180(rot) }, state);
+					masks[rot0].push(...forward);
+					masks[rot0].push(...backward);
+				}
+			}
 		}
 	}
-
+	return (rot: number) => masks[rot];
 }
 
 export function* neighbors<T extends NodeBase>(grid: T[][], node: T, opts: PathfinderParams) {

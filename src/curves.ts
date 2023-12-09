@@ -22,7 +22,7 @@ export function computeCurves(a: Position, b: Position, state: GameState): PathC
 
 	// check for straight line
 	const angle = (Math.atan2(dy, dx) + 2 * PI) % (2 * PI);
-	if (rot1 === rot2 && rot1 === angle) {
+	if (Math.abs(rot1 - rot2) + Math.abs(rot1 - angle) < .001) {
 		return [{ line: { x1: a.x, y1: a.y, x2: b.x, y2: b.y } }];
 	}
 
@@ -43,10 +43,10 @@ export function computeCurves(a: Position, b: Position, state: GameState): PathC
 		const phi0 = Math.atan2(y2 - y1, x2 - x1);
 		const phi = mod2PI(phi0 + side1 * (inner ? Math.asin(2 * r / dist) : 0));
 
-		// forbid 360-ish turns
-		if (mod2PI((phi - rot1) * side1) > PI * 1.5)
+		// forbid 180+ turns
+		if (mod2PI((phi - rot1) * side1) >= PI / 2)
 			continue;
-		if (mod2PI((rot2 - phi) * side2) > PI * 1.5)
+		if (mod2PI((rot2 - phi) * side2) >= PI / 2)
 			continue;
 
 		result.push({

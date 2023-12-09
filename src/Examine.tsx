@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Level } from './Level';
-import { Coords, Position, posEqual, useGameState } from './game';
+import { Coords, Position, neighborsFactory, posEqual, useGameState } from './game';
 import { useLevelState } from './level';
 
 import * as THREE from 'three';
@@ -41,7 +41,10 @@ export default function Examine() {
 	const paths = useMemo(() => {
 		if (!start || !target) return null;
 		const a = start, b = target;
-		return computeCurves(a, b, state).map(c => drawCurve(c, state));
+		const fact = neighborsFactory(state);
+		console.log(fact(b.rot % state.rotNumber))
+		return fact(b.rot % state.rotNumber).map(c => drawCurve(c, state));
+		// return computeCurves(a, b, state).map(c => drawCurve(c, state));
 	}, [start, target, state]);
 
 	return <>
@@ -49,18 +52,18 @@ export default function Examine() {
 			onClick: e => setStart(closestNode(e.point)),
 			onPointerMove: e => setTarget(closestNode(e.point))
 		}}/>
-		<mesh position={[start.x, start.y, 0]}
+		{/* <mesh position={[start.x, start.y, 0]}
 			rotation={new THREE.Euler(0, 0, start.rot / rotNumber * PI * 2 )}>
 			<shapeGeometry args={[arrowShape]}/>
 			<meshBasicMaterial color='cyan'/>
-		</mesh>
+		</mesh> */}
 		{target && !posEqual(target, start) && <mesh position={[target.x, target.y, 0]}
 			rotation={new THREE.Euler(0, 0, target.rot / rotNumber * PI * 2 )}>
 			<shapeGeometry args={[arrowShape]}/>
 			<meshBasicMaterial color='magenta'/>
 		</mesh>}
 		{/* @ts-ignore */}
-		{paths && paths.map( p => <line geometry={p} position={[start.x, start.y, 0]}>
+		{paths && paths.map( p => <line geometry={p} position={[target.x, target.y, 0]}>
 			<lineBasicMaterial color='cyan'/>
 		</line>) }
 	</>;
