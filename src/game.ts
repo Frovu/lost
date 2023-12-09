@@ -33,7 +33,7 @@ const defaultState = {
 	results: [] as PathfindingResult[]
 };
 
-type GameState = typeof defaultState & {
+export type GameState = typeof defaultState & {
 	set: <T extends keyof typeof defaultState>(k: T, val: typeof defaultState[T]) => void,
 	addResult: (r: PathfindingResult) => void,
 	reset: () => void,
@@ -77,22 +77,6 @@ export const play = (force=true) => useGameState.setState(state => {
 
 export const distance = (a: Position, b: Position) =>
 	Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
-
-// https://math.stackexchange.com/questions/719758/inner-tangent-between-two-circles-formula
-export function buildCurves(a: Position, b: Position, state?: GameState) {
-	const { turningRadius: r } = state ?? useGameState.getState();
-	const dist = distance(a, b);
-	const phi0 = Math.atan2(b.y - a.y, b.x - a.x);
-	const phi = phi0 + Math.asin(2 * r / dist) - Math.PI / 2;
-	const t1x = a.x + r * Math.cos(phi);
-	const t1y = a.y + r * Math.sin(phi);
-	const t2x = b.x + r * Math.cos(phi + Math.PI);
-	const t2y = b.y + r * Math.sin(phi + Math.PI);
-
-
-
-
-}
 
 export function neighborsFactory(state: GameState) {
 	const { turningRadius, neighborsRadius } = state;
