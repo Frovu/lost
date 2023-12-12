@@ -33,7 +33,7 @@ export function GameControls() {
 		<label title='Number of possible stationary rotations'>Rot
 			<select style={{ marginLeft: 2 }}
 				value={rotNumber} onChange={e => set('rotNumber', parseInt(e.target.value))}>
-				{[4, 8, 12, 16, 32].map(n => <option key={n} value={n}>{n}</option>)}
+				{[4, 8, 16].map(n => <option key={n} value={n}>{n}</option>)}
 			</select></label>
 		<label title='Examine available paths and costs'>Examine
 			<input type='checkbox' checked={examineMode} onChange={e => set('examineMode', e.target.checked)}/></label>

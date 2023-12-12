@@ -43,10 +43,10 @@ export function computeCurves(a: Position, b: Position, state: GameState): PathC
 		const phi0 = Math.atan2(y2 - y1, x2 - x1);
 		const phi = mod2PI(phi0 + side1 * (inner ? Math.asin(2 * r / dist) : 0));
 
-		// forbid 180+ turns
-		if (mod2PI((phi - rot1) * side1) >= PI / 2)
+		// forbid sharp turns
+		if (mod2PI((phi - rot1) * side1) > PI / 2)
 			continue;
-		if (mod2PI((rot2 - phi) * side2) >= PI / 2)
+		if (mod2PI((rot2 - phi) * side2) > PI / 2)
 			continue;
 
 		result.push({

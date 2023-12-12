@@ -4,7 +4,7 @@ import { Coords, Position, neighborsFactory, posEqual, useGameState } from './ga
 import { useLevelState } from './level';
 
 import * as THREE from 'three';
-import { computeCurves, drawCurve } from './curves';
+import { drawCurve } from './curves';
 
 const { min, max, round, PI } = Math;
 
@@ -28,7 +28,7 @@ function getrot1tion(x1: number, y1: number, x2: number, y2: number) {
 
 export default function Examine() {
 	const state = useGameState();
-	const { rotNumber, turningRadius: r } = state;
+	const { rotNumber } = state;
 	const { size } = useLevelState();
 	const [target, setTarget] = useState<Position | null>(null);
 	const [start, setStart] = useState<Position>({ x: size / 2, y: size / 2, rot: 0 });
@@ -38,33 +38,31 @@ export default function Examine() {
 		return { x, y, rot: getrot1tion(x, y, ax, ay) };
 	};
 
-	const paths = useMemo(() => {
-		if (!start || !target) return null;
-		const a = start, b = target;
+	const allPaths = useMemo(() => {
+		if (!start) return null;
 		const fact = neighborsFactory(state);
-		console.log(fact(b.rot % state.rotNumber))
-		return fact(b.rot % state.rotNumber).map(c => drawCurve(c, state));
+		return fact(start.rot % state.rotNumber).map(c => drawCurve(c, state));
 		// return computeCurves(a, b, state).map(c => drawCurve(c, state));
-	}, [start, target, state]);
+	}, [start, state]);
 
 	return <>
 		<Level {...{
 			onClick: e => setStart(closestNode(e.point)),
 			onPointerMove: e => setTarget(closestNode(e.point))
 		}}/>
-		{/* <mesh position={[start.x, start.y, 0]}
+		<mesh position={[start.x, start.y, 0]}
 			rotation={new THREE.Euler(0, 0, start.rot / rotNumber * PI * 2 )}>
 			<shapeGeometry args={[arrowShape]}/>
 			<meshBasicMaterial color='cyan'/>
-		</mesh> */}
+		</mesh>
 		{target && !posEqual(target, start) && <mesh position={[target.x, target.y, 0]}
 			rotation={new THREE.Euler(0, 0, target.rot / rotNumber * PI * 2 )}>
 			<shapeGeometry args={[arrowShape]}/>
 			<meshBasicMaterial color='magenta'/>
 		</mesh>}
 		{/* @ts-ignore */}
-		{paths && paths.map( p => <line geometry={p} position={[target.x, target.y, 0]}>
-			<lineBasicMaterial color='cyan'/>
+		{allPaths && allPaths.map( p => <line geometry={p} position={[start.x, start.y, 0]}>
+			<lineBasicMaterial color='rgb(100,50,50)' opacity={.8} transparent/>
 		</line>) }
 	</>;
 }
