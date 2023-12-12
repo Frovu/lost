@@ -71,6 +71,10 @@ export function computeCurves(a: Position, b: Position, state: GameState): PathC
 	return result;
 }
 
+export function curveIntersects({ line, a0, a1 }: PathCurve, state: GameState) {
+	return { line, a0, a1 }
+}
+
 export function drawCurve({ line, a0, a1 }: PathCurve, state: GameState) {
 	const { turningRadius: r } = state;
 	const p = new THREE.Path();
@@ -79,7 +83,7 @@ export function drawCurve({ line, a0, a1 }: PathCurve, state: GameState) {
 		p.arc(a0.x, a0.y, r,
 			a0.rot - a0.side * PI/2,
 			a0.phi - a0.side * PI/2, a0.side < 0);
-		p.arc(a1.x - line.x1, a1.y - line.y1, r,
+		p.arc(a1.x - p.currentPoint.x, a1.y - p.currentPoint.y, r,
 			a1.phi - a1.side * PI/2,
 			a1.rot - a1.side * PI/2, a1.side < 0);
 	} else {
