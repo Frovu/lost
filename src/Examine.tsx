@@ -6,7 +6,7 @@ import { useLevelState } from './level';
 import * as THREE from 'three';
 import { PathCurve, computeCurves, drawCurve } from './curves';
 
-const { min, max, round, PI } = Math;
+const { min, max, round, ceil, floor, PI } = Math;
 
 const arrowShape = (state: GameState) => {
 	const a = new THREE.Shape();
@@ -55,12 +55,15 @@ export default function Examine() {
 		const { a0, a1, line } = curve;
 		const { turningRadius: r, robotWidth: w, robotLength: l } = state;
 
+		const rot = PI * 2 / rotNumber * start.rot;
+		const tanX = Math.cos(rot + PI / 2) * w / 2;
+		const tanY = Math.sin(rot + PI / 2) * w / 2;
+
 		const left = new THREE.Path();
 		const right = new THREE.Path();
+		const outerR = Math.sqrt((r + w / 2) ** 2 + (l / 2) ** 2);
+		const innerR = r - w / 2;
 		if (a0 && a1) {
-			const outerR = Math.sqrt((r + w / 2) ** 2 + (l / 2) ** 2);
-			const innerR = r - w / 2;
-
 			left.arc(a0.x, a0.y,
 				a0.side > 0 ? innerR : outerR,
 				a0.rot - a0.side * PI/2,
@@ -78,20 +81,64 @@ export default function Examine() {
 				a1.phi - a1.side * PI/2,
 				a1.rot - a1.side * PI/2, a1.side < 0);
 		} else {
-			const rot = PI * 2 / rotNumber * start.rot;
-			const x = Math.cos(rot + PI / 2) * w / 2;
-			const y = Math.sin(rot + PI / 2) * w / 2;
-			console.log(x, y, line)
-			left.moveTo(x, y);
-			left.lineTo(x + line.x2 - line.x1, y + line.y2 - line.y1);
-			right.moveTo(-x, -y);
-			right.lineTo(-x + line.x2 - line.x1, -y + line.y2 - line.y1);
+			left.moveTo(tanX, tanY);
+			left.lineTo(tanX + line.x2 - line.x1, tanY + line.y2 - line.y1);
+			right.moveTo(-tanX, -tanY);
+			right.lineTo(-tanX + line.x2 - line.x1, -tanY + line.y2 - line.y1);
 		}
 
-		return { path: drawCurve(curve, state),
+		const yIntercepts = [], xIntercepts = [];
+		let [minx, miny, maxx, maxy] = [0, 0, 0, 0];
+
+		const phi = Math.atan2(line.y2 - line.y1, line.x2 - line.x1);
+
+		minx = min(line.x1, line.x2);
+		miny = min(line.y1, line.y2);
+		maxx = max(line.x1, line.x2);
+		maxy = max(line.y1, line.y2);
+		const lTanX = Math.cos(phi + PI / 2) * w / 2;
+		const lTanY = Math.sin(phi + PI / 2) * w / 2;
+
+		for (let x = ceil(minx); x < ceil(maxx) + 1; ++x) {
+			const ly = line.y1 + lTanY + Math.tan(phi) * (x - .5 - lTanX - line.x1);
+			const ry = line.y1 - lTanY + Math.tan(phi) * (x - .5 + lTanX - line.x1);
+			yIntercepts.push([x - .5, ly, 1]);
+			yIntercepts.push([x - .5, ry, -1]);
+		}
+
+		for (let y = ceil(miny); y < ceil(maxy) + 1; ++y) {
+			const lx = line.x1 + lTanX + (y - .5 - line.y1 - lTanY) /  Math.tan(phi);
+			const rx = line.x1 - lTanX + (y - .5 - line.y1 + lTanY) /  Math.tan(phi);
+			xIntercepts.push([lx, y - .5, 1]);
+			xIntercepts.push([rx, y - .5, -1]);
+		}
+		const weights = [];
+		for (let x = ceil(minx); x < ceil(maxx) + 1; ++x) {
+			for (let y = ceil(miny); y < ceil(maxy) + 1; ++y) {
+				const points  = xIntercepts.filter(([ax, ay]) => (ay + .5 === y || ay - .5 === y) && x === round(ax));
+				const points2 = yIntercepts.filter(([ax, ay]) => (ax + .5 === x || ax - .5 === x) && y === round(ay));
+				const allPoints = points.concat(points2);
+				if (allPoints.length < 2)
+					continue;
+
+				const left  = allPoints.filter(p => p[2] > 0);
+				const right = allPoints.filter(p => p[2] < 0);
+				console.log(left, right)
+			}
+		}
+
+		if (a0 && a1) {
+
+		}
+
+
+		return { path: drawCurve(curve, state), curve,
+			intercepts: xIntercepts.concat(yIntercepts),
 			left: new THREE.BufferGeometry().setFromPoints(left.getPoints(32)),
 			right: new THREE.BufferGeometry().setFromPoints(right.getPoints(32)) };
 	}, [start, target, state, rotNumber]);
+
+	// console.log(thePath?.segments)
 
 	const arrow = arrowShape(state);
 
@@ -111,7 +158,7 @@ export default function Examine() {
 			<meshBasicMaterial color='magenta'/>
 		</mesh>}
 		{/* @ts-ignore */}
-		{allPaths && allPaths.map( p => <line geometry={p} position={[start.x, start.y, 0]}>
+		{allPaths && allPaths.map(p => <line geometry={p} position={[start.x, start.y, 0]}>
 			<lineBasicMaterial color='rgb(100,50,50)' opacity={.5} transparent/>
 		</line>) }
 		{/* @ts-ignore */}
@@ -126,5 +173,17 @@ export default function Examine() {
 		{thePath?.right && <line geometry={thePath.right} position={[start.x, start.y, 0]}>
 			<lineBasicMaterial color='orange' transparent/>
 		</line> }
+		{thePath?.intercepts && thePath.intercepts.map(([x, y]) => <mesh position={[x + start.x, y + start.y, 0]}>
+			<circleGeometry args={[.05]}/>
+			<meshBasicMaterial color='rgb(0,255,0)'/>
+		</mesh>)}
+		{thePath?.curve && <><mesh position={[start.x + thePath.curve.line.x1, start.y + thePath.curve.line.y1, 0]}>
+			<circleGeometry args={[.05]}/>
+			<meshBasicMaterial color='cyan'/>
+		</mesh></>}
+		{thePath?.curve && <><mesh position={[start.x + thePath.curve.line.x2, start.y + thePath.curve.line.y2, 0]}>
+			<circleGeometry args={[.05]}/>
+			<meshBasicMaterial color='cyan'/>
+		</mesh></>}
 	</>;
 }

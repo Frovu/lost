@@ -23,7 +23,7 @@ export function computeCurves(a: Position, b: Position, state: GameState): PathC
 	// check for straight line
 	const angle = (Math.atan2(dy, dx) + 2 * PI) % (2 * PI);
 	if (Math.abs(rot1 - rot2) + Math.abs(rot1 - angle) < .001) {
-		return [{ line: { x1: a.x, y1: a.y, x2: b.x, y2: b.y } }];
+		return [{ line: { x1: 0, y1: 0, x2: b.x - a.x, y2: b.y - a.y } }];
 	}
 
 	const result = [];
@@ -87,7 +87,7 @@ export function drawCurve({ line, a0, a1 }: PathCurve, state: GameState) {
 			a1.phi - a1.side * PI/2,
 			a1.rot - a1.side * PI/2, a1.side < 0);
 	} else {
-		p.lineTo(line.x2 - line.x1, line.y2 - line.y1);
+		p.lineTo(line.x2, line.y2);
 	}
 
 	return new THREE.BufferGeometry().setFromPoints(p.getPoints(32));

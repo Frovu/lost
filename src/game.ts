@@ -23,8 +23,8 @@ export type PathfindingResult = {
 };
 
 const defaultState = {
-	robotLength: .8,
-	robotWidth: .4,
+	robotLength: 1.2,
+	robotWidth: .8,
 	turningRadius: 1,
 	neighborsRadius: 2,
 	rotNumber: 16,
