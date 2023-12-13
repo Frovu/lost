@@ -107,23 +107,48 @@ export default function Examine() {
 		}
 
 		for (let y = ceil(miny); y < ceil(maxy) + 1; ++y) {
-			const lx = line.x1 + lTanX + (y - .5 - line.y1 - lTanY) /  Math.tan(phi);
-			const rx = line.x1 - lTanX + (y - .5 - line.y1 + lTanY) /  Math.tan(phi);
+			const lx = line.x1 + lTanX + (y - .5 - line.y1 - lTanY) / Math.tan(phi);
+			const rx = line.x1 - lTanX + (y - .5 - line.y1 + lTanY) / Math.tan(phi);
 			xIntercepts.push([lx, y - .5, 1]);
 			xIntercepts.push([rx, y - .5, -1]);
 		}
 		const weights = [];
-		for (let x = ceil(minx); x < ceil(maxx) + 1; ++x) {
-			for (let y = ceil(miny); y < ceil(maxy) + 1; ++y) {
-				const points  = xIntercepts.filter(([ax, ay]) => (ay + .5 === y || ay - .5 === y) && x === round(ax));
-				const points2 = yIntercepts.filter(([ax, ay]) => (ax + .5 === x || ax - .5 === x) && y === round(ay));
-				const allPoints = points.concat(points2);
-				if (allPoints.length < 2)
+		console.log(111)
+		for (let x = floor(minx); x < ceil(maxx); ++x) {
+			for (let y = floor(miny); y < ceil(maxy); ++y) {
+				const dx = x - line.x1, dy = y - line.y1;
+				const cellPhi = Math.atan2(dy, dx);
+				const ad = phi - cellPhi;
+				const tana = phi + (ad > 0 ? 1 : -1) * PI / 2;
+				const corner = round(tana / PI * 2) * PI / 2 + PI / 4;
+				const cx = Math.cos(corner) / Math.SQRT2;
+				const cy = Math.sin(corner) / Math.SQRT2;
+		
+				const cdx = dx + cx, cdy = dy + cy;
+				const chyp = Math.sqrt(cdx**2 + cdy**2);
+				const hyp = Math.sqrt(dx**2 + dy**2);
+				const cdist = Math.abs(Math.sin(phi - Math.atan2(cdy, cdx)) * chyp);
+				const dist = Math.abs(Math.sin(ad) * hyp);
+				console.log(dist, cdist)
+				if (dist >= Math.SQRT2 / 2 && cdist > w / 2)
 					continue;
+				const wgt = dist > Math.SQRT2 ? 0 : 1 - dist / Math.SQRT2;
+				if (wgt > 0)
+					weights.push({ x, y, w: wgt });
+				// const item = { x, y, weight: 1 };
+				// weights.push(item);
+				// const points  = xIntercepts.filter(([ax, ay]) => (ay + .5 === y || ay - .5 === y) && x === round(ax));
+				// const points2 = yIntercepts.filter(([ax, ay]) => (ax + .5 === x || ax - .5 === x) && y === round(ay));
+				// const allPoints = points.concat(points2);
+				// const left  = allPoints.filter(p => p[2] > 0);
+				// const right = allPoints.filter(p => p[2] < 0);
+				// if (left.length > 1) {
 
-				const left  = allPoints.filter(p => p[2] > 0);
-				const right = allPoints.filter(p => p[2] < 0);
-				console.log(left, right)
+				// }
+				// if (right.length > 1) {
+
+				// }
+				// console.log(left, right)
 			}
 		}
 
@@ -131,8 +156,8 @@ export default function Examine() {
 
 		}
 
-
-		return { path: drawCurve(curve, state), curve,
+		return { path: drawCurve(curve, state),
+			curve, weights,
 			intercepts: xIntercepts.concat(yIntercepts),
 			left: new THREE.BufferGeometry().setFromPoints(left.getPoints(32)),
 			right: new THREE.BufferGeometry().setFromPoints(right.getPoints(32)) };
@@ -185,5 +210,10 @@ export default function Examine() {
 			<circleGeometry args={[.05]}/>
 			<meshBasicMaterial color='cyan'/>
 		</mesh></>}
+		{thePath?.weights && thePath.weights.map(({ x, y, w }) =>
+			<mesh position={[start.x + x, start.y + y, 0]}>
+				<boxGeometry args={[1, 1, 0]}/>
+				<meshBasicMaterial color='red' opacity={w / 1.2} transparent/>
+			</mesh>)}
 	</>;
 }
