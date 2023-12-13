@@ -44,13 +44,13 @@ export default function Examine() {
 
 	const allPaths = useMemo(() => {
 		if (!start) return null;
-		const fact = neighborsFactory(state);
-		return fact(start.rot % state.rotNumber).map(c => drawCurve(c, state));
+		// const fact = neighborsFactory(state);
+		// return fact(start.rot % state.rotNumber).map(c => drawCurve(c, state));
 	}, [start, state]);
 
 	const thePath = useMemo(() => {
 		if (!start || !target) return null;
-		const curve = computeCurves(start, target, state)[0];
+		const curve = computeCurves(start, target, state)[2];
 		if (!curve) return null;
 		const { a0, a1, line } = curve;
 		const { turningRadius: r, robotWidth: w, robotLength: l } = state;
@@ -112,47 +112,73 @@ export default function Examine() {
 			xIntercepts.push([lx, y - .5, 1]);
 			xIntercepts.push([rx, y - .5, -1]);
 		}
+
 		const weights = [];
-		console.log(111)
-		for (let x = floor(minx); x < ceil(maxx); ++x) {
-			for (let y = floor(miny); y < ceil(maxy); ++y) {
+		for (let x = floor(minx) - ceil(w); x < ceil(maxx) + ceil(w); ++x) {
+			for (let y = floor(miny) - ceil(w); y < ceil(maxy) + ceil(w); ++y) {
 				const dx = x - line.x1, dy = y - line.y1;
 				const cellPhi = Math.atan2(dy, dx);
-				const ad = phi - cellPhi;
+				const cellPhiE = Math.atan2(y - line.y2, x - line.x2);
+				const ad = (phi - cellPhi + PI*2 + PI) % (PI*2) - PI;
+				const ade = (phi - cellPhiE + PI*2 + PI) % (PI*2) - PI;
 				const tana = phi + (ad > 0 ? 1 : -1) * PI / 2;
-				const corner = round(tana / PI * 2) * PI / 2 + PI / 4;
+				const corner = (floor(tana / PI * 2) * PI / 2) + PI / 4;
 				const cx = Math.cos(corner) / Math.SQRT2;
 				const cy = Math.sin(corner) / Math.SQRT2;
 		
 				const cdx = dx + cx, cdy = dy + cy;
 				const chyp = Math.sqrt(cdx**2 + cdy**2);
 				const hyp = Math.sqrt(dx**2 + dy**2);
+				const hypE = Math.sqrt((x - line.x2)**2 + (y - line.y2)**2);
 				const cdist = Math.abs(Math.sin(phi - Math.atan2(cdy, cdx)) * chyp);
 				const dist = Math.abs(Math.sin(ad) * hyp);
-				console.log(dist, cdist)
-				if (dist >= Math.SQRT2 / 2 && cdist > w / 2)
+
+				if (dist >= Math.SQRT2 / 2 + .01 && cdist > w / 2)
 					continue;
-				const wgt = dist > Math.SQRT2 ? 0 : 1 - dist / Math.SQRT2;
+				let wgt = 1 - dist / Math.SQRT2;
+				if (Math.abs(ad) > PI / 2)
+					wgt = hyp >= 1 ? 0 : Math.min(.5, wgt / hyp);
+				if (Math.abs(ade) < PI / 2)
+					wgt = hypE >= 1 ? 0 : Math.min(.5, wgt / hyp);
+				if (hyp === 0 || hypE === 0)
+					wgt = .5;
 				if (wgt > 0)
 					weights.push({ x, y, w: wgt });
-				// const item = { x, y, weight: 1 };
-				// weights.push(item);
-				// const points  = xIntercepts.filter(([ax, ay]) => (ay + .5 === y || ay - .5 === y) && x === round(ax));
-				// const points2 = yIntercepts.filter(([ax, ay]) => (ax + .5 === x || ax - .5 === x) && y === round(ay));
-				// const allPoints = points.concat(points2);
-				// const left  = allPoints.filter(p => p[2] > 0);
-				// const right = allPoints.filter(p => p[2] < 0);
-				// if (left.length > 1) {
-
-				// }
-				// if (right.length > 1) {
-
-				// }
-				// console.log(left, right)
 			}
 		}
 
-		if (a0 && a1) {
+		for (const [i, a] of [a0, a1].entries()) {
+			if (!a) continue;
+			const x0 = round(a.x), y0 = round(a.y), rrr = ceil(r) + 1;
+			for (let x = x0 - rrr; x < x0 + rrr + 1; ++x) {
+				for (let y = y0 - rrr; y < y0 + rrr + 1; ++y) {
+					const dy = y - a.y, dx = x - a.x;
+					const cph = Math.atan2(dy, dx);
+					const ap0 = a.phi - a.side * PI/2 % (2*PI);
+					const ap1 = a.rot - a.side * PI/2 % (2*PI);
+					const ad = (2*PI + (ap1 - ap0) * a.side) % (2*PI);
+					const pd = (2*PI + (cph - ap0) * a.side) % (2*PI);
+				
+					// console.log(x, y, [ap0, ap1, cph, ad, pd].map(n => (n % (2*PI)) / PI * 180))
+					if ((pd - ad) * (i > 0 ? 1 : -1) > 0)
+						continue;
+
+					const cr = Math.sqrt(dx ** 2 + dy ** 2);
+					const corner = Math.abs(Math.sin(2 * (cph - PI / 2))) * Math.SQRT2 / 4;
+					console.log(x, y, [cph].map(n => (n % (2*PI)) / PI * 180))
+					console.log(corner)
+
+					if (cr > outerR + w / 2 + corner)
+						continue;
+					if (cr < innerR - w / 2 - corner)
+						continue;
+
+					const dist = 1 - Math.abs(r - cr);
+
+					weights.push({ x, y, w: dist });
+				}
+			}
+			
 
 		}
 
