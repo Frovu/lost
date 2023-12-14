@@ -88,7 +88,6 @@ export function neighborsFactory(params: PathfinderParams) {
 	const state = params.state;
 	const { neighborsRadius, rotNumber } = state;
 	const curves: PathCurve[][] = Array(rotNumber).fill(null).map(() => []);
-	const rot180 = (r: number) => (r + rotNumber / 2) % rotNumber;
 
 	for (let rot0 = 0; rot0 < rotNumber; ++rot0) {
 		const pos0 = { x: 0, y: 0, rot: rot0 };
@@ -97,9 +96,8 @@ export function neighborsFactory(params: PathfinderParams) {
 				if (x === 0 && y === 0)
 					continue;
 				for (let rot = 0; rot < rotNumber; ++rot) {
-					const forward = computeCurves(pos0, { x, y, rot }, state);
-					const pos180 = { ...pos0, rot: rot180(rot0) };
-					const backward = computeCurves(pos180, { x, y, rot: rot180(rot) }, state);
+					const forward  = computeCurves(pos0, { x, y, rot }, state);
+					const backward = computeCurves(pos0, { x, y, rot }, state, true);
 					curves[rot0].push(...forward);
 					curves[rot0].push(...backward);
 				}

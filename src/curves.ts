@@ -15,8 +15,11 @@ export type PathCurve = {
 	a1?: Arc
 };
 
-export function computeCurves(a: Position, b: Position, state: GameState): PathCurve[] {
+export function computeCurves(start: Position, target: Position, state: GameState, reverse=false): PathCurve[] {
 	const { rotNumber, turningRadius: r } = state;
+	const rot180 = (p: Position) => ({ ...p, rot: (p.rot + rotNumber / 2) % rotNumber });
+	const a = reverse ? rot180(start) : start;
+	const b = reverse ? rot180(target) : target;
 	const dy = b.y - a.y, dx = b.x - a.x;
 
 	const rot1 = PI * 2 / rotNumber * a.rot;
@@ -52,8 +55,8 @@ export function computeCurves(a: Position, b: Position, state: GameState): PathC
 			continue;
 
 		result.push({
-			start: a,
-			target: b,
+			start,
+			target,
 			line: {
 				x1: x1 + r * Math.cos(phi - side1 * PI / 2),
 				y1: y1 + r * Math.sin(phi - side1 * PI / 2),
