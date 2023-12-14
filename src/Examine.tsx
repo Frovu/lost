@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Level } from './Level';
-import { Coords, GameState, Position, posEqual, useGameState } from './game';
+import { Coords, GameState, Position, neighborsFactory, posEqual, useGameState } from './game';
 import { useLevelState } from './level';
 
 import * as THREE from 'three';
@@ -32,21 +32,28 @@ function getrot1tion(x1: number, y1: number, x2: number, y2: number) {
 
 export default function Examine() {
 	const state = useGameState();
-	const { rotNumber } = state;
-	const { size } = useLevelState();
+	const { rotNumber,  } = state;
+	const { size, grid } = useLevelState();
 	const [target, setTarget] = useState<Position | null>(null);
-	const [start, setStart] = useState<Position>({ x: size / 2, y: size / 2, rot: 0 });
+	const [start, setStart] = useState<Position>({ x: Math.round(size / 2), y: Math.round(size / 2), rot: 0 });
+	start.rot %= state.rotNumber;
 
 	const closestNode = ({ x: ax, y: ay }: Coords) => {
 		const [x, y] = [ax, ay].map(a => max(0, min(round(a), size - 1)));
 		return { x, y, rot: getrot1tion(x, y, ax, ay) };
 	};
 
+	const graph = useMemo(() => [...Array(size).keys()]
+		.map(y => [...Array(size).keys()]
+			.map(x => [...Array(rotNumber).keys()]
+				.map(rot => ({ x, y, rot }))))
+	, [size, rotNumber]);
+
 	const allPaths = useMemo(() => {
-		if (!start) return null;
-		// const fact = neighborsFactory(state);
-		// return fact(start.rot % state.rotNumber).map(c => drawCurve(c, state));
-	}, [start, state]);
+		if (!start || !grid) return null;
+		const fact = neighborsFactory({ state, grid, size, animate: true });
+		return fact(start, graph).map(a => drawCurve(a.curve, state));
+	}, [start, grid, state, size, graph]);
 
 	const thePath = useMemo(() => {
 		if (!start || !target) return null;
@@ -149,14 +156,16 @@ export default function Examine() {
 
 		for (const [i, a] of [a0, a1].entries()) {
 			if (!a) continue;
+			const ap0 = a.phi - a.side * PI/2 % (2*PI);
+			const ap1 = a.rot - a.side * PI/2 % (2*PI);
+			const ad = (2*PI + (ap1 - ap0) * a.side) % (2*PI);
 			const x0 = round(a.x), y0 = round(a.y), rrr = ceil(r) + 1;
+			if (ad <= 0) continue;
+
 			for (let x = x0 - rrr; x < x0 + rrr + 1; ++x) {
 				for (let y = y0 - rrr; y < y0 + rrr + 1; ++y) {
 					const dy = y - a.y, dx = x - a.x;
 					const cph = Math.atan2(dy, dx);
-					const ap0 = a.phi - a.side * PI/2 % (2*PI);
-					const ap1 = a.rot - a.side * PI/2 % (2*PI);
-					const ad = (2*PI + (ap1 - ap0) * a.side) % (2*PI);
 					const pd = (2*PI + (cph - ap0) * a.side) % (2*PI);
 					const centerRadius = Math.sqrt(dx ** 2 + dy ** 2);
 					const inner = centerRadius < r;

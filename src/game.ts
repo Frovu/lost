@@ -1,17 +1,15 @@
 import { create } from 'zustand';
 import Astar from './algorithm/astar';
 import { useLevelState } from './level';
-import { PathCurve, computeCurves } from './curves';
+import { PathCurve, computeCurves, renderCurveGridMask } from './curves';
 import { persist } from 'zustand/middleware';
-
-const SQRT_2 = Math.sqrt(2);
 
 export type Coords = { x: number, y: number };
 export type Position = { x: number, y: number, rot: number };
 
 export const posEqual = (a: Position, b: Position) => a.x === b.x && a.y === b.y && a.rot === b.rot;
 
-export type NodeBase = Position & { cost: number };
+export type NodeBase = Position & { cost?: number };
 
 export type PathfindingResult = {
 	opts: PathfinderParams,
@@ -66,7 +64,8 @@ export const useGameState = create<GameState>()(persist((set) => ({
 	reset: () => set(st => ({ ...st, results: [] })),
 }), {
 	name: 'you lost',
-	partialize: ({ turningRadius, rotNumber }) => ({ turningRadius, rotNumber })
+	partialize: ({ turningRadius, rotNumber, robotLength, robotWidth }) =>
+		({ turningRadius, rotNumber, robotLength, robotWidth })
 }));
 
 export const play = (force=true) => useGameState.setState(state => {
@@ -85,9 +84,10 @@ export const play = (force=true) => useGameState.setState(state => {
 export const distance = (a: Position, b: Position) =>
 	Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
 
-export function neighborsFactory(state: GameState) {
+export function neighborsFactory(params: PathfinderParams) {
+	const state = params.state;
 	const { neighborsRadius, rotNumber } = state;
-	const masks: PathCurve[][] = Array(rotNumber).fill(null).map(() => []);
+	const curves: PathCurve[][] = Array(rotNumber).fill(null).map(() => []);
 	const rot180 = (r: number) => (r + rotNumber / 2) % rotNumber;
 
 	for (let rot0 = 0; rot0 < rotNumber; ++rot0) {
@@ -100,32 +100,41 @@ export function neighborsFactory(state: GameState) {
 					const forward = computeCurves(pos0, { x, y, rot }, state);
 					const pos180 = { ...pos0, rot: rot180(rot0) };
 					const backward = computeCurves(pos180, { x, y, rot: rot180(rot) }, state);
-					masks[rot0].push(...forward);
-					masks[rot0].push(...backward);
+					curves[rot0].push(...forward);
+					curves[rot0].push(...backward);
 				}
 			}
 		}
 	}
-	return (rot: number) => masks[rot];
-}
+	const rendered = curves.map(forRot => forRot.map(c => 
+		({ curve: c, mask: renderCurveGridMask(c, state) })));
 
-export function* neighbors<T extends NodeBase>(grid: T[][], node: T, opts: PathfinderParams) {
-	const r = 1;
-	const { size } = opts;
-	const { x, y } = node;
-	for (let i = Math.max(0, y - r); i < Math.min(size, y + r + 1); ++i) {
-		for (let j = Math.max(0, x - r); j < Math.min(size, x + r + 1); ++j) {
-			if (j === x && i === y)
-				continue;
-			const cur = grid[i][j];
-			if (cur.cost >= 255)
-				continue;
-			yield cur;
+	const { grid, size } = params;
+
+	return <T extends NodeBase>(pos: Position, graph: T[][][]) => rendered[pos.rot].map(({ curve, mask }) => {
+		const tx = curve.target.x + pos.x;
+		const ty = curve.target.y + pos.y;
+
+		if (tx < 0 || tx >= size)
+			return null;
+		if (ty < 0 || ty >= size)
+			return null;
+
+		const target = graph[ty][tx][curve.target.rot];
+		const multi = state.costMulti / 256;
+		let totalCost = 0;
+
+		for (const { x, y, w } of mask) {
+			const cost = grid[y * size + x];
+			if (cost >= 255)
+				return null;
+			totalCost += (1 + cost * multi) * w;
 		}
-	}
-};
 
-export function computeCost(a: NodeBase, b: NodeBase, opts: PathfinderParams) {
-	const dist = (a.x === b.x || a.y === b.y) ? 1 : SQRT_2;
-	return dist + b.cost / 256 * opts.state.costMulti;
+		return { node: target, curve, cost: totalCost };
+	}).filter((a): a is {
+		node: T,
+		curve: PathCurve,
+		cost: number
+	} => a != null);
 }

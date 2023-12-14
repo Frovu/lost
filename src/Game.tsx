@@ -2,7 +2,7 @@ import { Level } from './Level';
 import { useLevelState } from './level';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { computeCost, play, useGameState } from './game';
+import { play, useGameState } from './game';
 
 export function GameControls() {
 	const { isPlaying, costMulti, heuristicMulti, animationSpeed, robotLength, robotWidth,
@@ -12,7 +12,7 @@ export function GameControls() {
 		const path = res.path;
 		let cost = 0;
 		for (let i = 0; i < (path?.length ?? 1) - 1; ++i)
-			cost += computeCost(path![i], path![i+1], res.opts);
+			cost += 1 // computeCost(path![i], path![i+1], res.opts);
 		return { cost, ...res };
 	}), [results]);
 

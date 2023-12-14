@@ -1,5 +1,5 @@
 import { MinPriorityQueue } from '@datastructures-js/priority-queue';
-import { Pathfinder, PathfinderParams, PathfindingResult, Position, computeCost, neighbors, useGameState } from '../game';
+import { Pathfinder, PathfinderParams, PathfindingResult, Position, useGameState } from '../game';
 import { animatePathfinding } from '../level';
 
 type Node = Position & {
@@ -83,27 +83,27 @@ export default class Astar implements Pathfinder{
 				// meta[current.y * opts.size + current.x] = 2;
 			}
 	
-			for (const node of neighbors(grid, current, opts)) {
-				const tentativeG = current.g + computeCost(current, node, opts);
-				const alreadyVisited = isFinite(node.g);
+			// for (const node of neighbors(grid, current, opts)) {
+			// 	const tentativeG = current.g + computeCost(current, node, opts);
+			// 	const alreadyVisited = isFinite(node.g);
 
-				const betterBy = node.g - tentativeG;
-				if (betterBy > 1) {
-					node.parent = current;
-					node.g = tentativeG;
-					node.f = tentativeG + heuristic(node, target) * hMulti;
+			// 	const betterBy = node.g - tentativeG;
+			// 	if (betterBy > 1) {
+			// 		node.parent = current;
+			// 		node.g = tentativeG;
+			// 		node.f = tentativeG + heuristic(node, target) * hMulti;
 
-					if (alreadyVisited)
-						queue.remove(({ x, y }) => node.x === x && node.y === y);
+			// 		if (alreadyVisited)
+			// 			queue.remove(({ x, y }) => node.x === x && node.y === y);
 
-					queue.push(node);
-				}
+			// 		queue.push(node);
+			// 	}
 
-				// meta[node.y * opts.size + node.x] = 3;
-			}
-			if (opts.animate && totalVisits % useGameState.getState().animationSpeed === 0) {
-				await animatePathfinding(meta.slice());
-			}
+			// 	// meta[node.y * opts.size + node.x] = 3;
+			// }
+			// if (opts.animate && totalVisits % useGameState.getState().animationSpeed === 0) {
+			// 	await animatePathfinding(meta.slice());
+			// }
 		}
 
 		return {
