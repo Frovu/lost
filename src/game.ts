@@ -96,10 +96,8 @@ export function neighborsFactory(params: PathfinderParams) {
 				if (x === 0 && y === 0)
 					continue;
 				for (let rot = 0; rot < rotNumber; ++rot) {
-					const forward  = computeCurves(pos0, { x, y, rot }, state);
-					const backward = computeCurves(pos0, { x, y, rot }, state, true);
-					curves[rot0].push(...forward);
-					curves[rot0].push(...backward);
+					const bunch = computeCurves(pos0, { x, y, rot }, state);
+					curves[rot0].push(...bunch);
 				}
 			}
 		}
@@ -123,12 +121,14 @@ export function neighborsFactory(params: PathfinderParams) {
 		let totalCost = 0;
 
 		for (const { x, y, w } of mask) {
-			const cost = grid[y * size + x];
-			if (cost >= 255)
+			const ax = x + pos.x, ay = y + pos.y;
+			const cost = grid[ay * size + ax];
+			if (cost == null || cost >= 255)
 				return null;
 			totalCost += (1 + cost * multi) * w;
 		}
 
+		console.log(pos, curve.target.rot)
 		return { node: target, curve, cost: totalCost };
 	}).filter((a): a is {
 		node: T,

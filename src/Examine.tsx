@@ -1,3 +1,4 @@
+import { Canvas } from '@react-three/fiber';
 import { useMemo, useState } from 'react';
 import { Level } from './Level';
 import { Coords, GameState, Position, neighborsFactory, posEqual, useGameState } from './game';
@@ -5,6 +6,7 @@ import { useLevelState } from './level';
 
 import * as THREE from 'three';
 import { computeCurves, drawCurve, renderCurveGridMask } from './curves';
+import { createPortal } from 'react-dom';
 
 const { min, max, round, ceil, PI } = Math;
 
@@ -60,9 +62,10 @@ export default function Examine() {
 	const thePath = useMemo(() =>
 		target && allPaths?.find(({ node }) => posEqual(node, target))
 	, [allPaths, target]);
+	console.log(allPaths, thePath)
 
 	const visuals = useMemo(() => {
-		if (!start || !target) return null;
+		if (!start || !target || !grid) return null;
 		const curve = thePath?.curve ?? computeCurves(start, target, state)[0];
 		if (!curve) return null;
 		const { a0, a1, line } = curve;
@@ -127,18 +130,41 @@ export default function Examine() {
 		}
 
 		const weights = renderCurveGridMask(curve, state);
+		let totalCost = 0;
+		for (const { x, y, w: wg } of weights) {
+			const tx = x + start.x;
+			const ty = y + start.y;
+			if (tx < 0 || tx >= size) {
+				totalCost = 999.9;
+				break;
+			}
+			if (ty < 0 || ty >= size) {
+				totalCost = 999.9;
+				break;
+			}
+			const cost = grid[ty * size + tx];
+			if (cost >= 255) {
+				totalCost = 999.9;
+				break;
+			}
+			totalCost += (1 + cost * state.costMulti / 256) * wg;
+		}
 
 		return {
+			cost: totalCost,
 			weights,
 			path: drawCurve(curve, state),
 			intercepts: xIntercepts.concat(yIntercepts),
 			left: new THREE.BufferGeometry().setFromPoints(left.getPoints(32)),
 			right: new THREE.BufferGeometry().setFromPoints(right.getPoints(32)) };
-	}, [start, target, thePath, state, rotNumber]);
+	}, [start, target, grid, thePath?.curve, state, rotNumber, size]);
 
 	const arrow = arrowShape(state);
 
-	return <>
+	return <><div style={{ position: 'absolute', top: 0, left: 8 }}>
+		{visuals && ('cost=' + visuals.cost.toFixed(1))}
+	</div>
+	<Canvas flat orthographic onContextMenu={e => e.preventDefault()}>
 		<Level {...{
 			onClick: e => setStart(closestNode(e.point)),
 			onPointerMove: e => setTarget(closestNode(e.point))
@@ -181,10 +207,13 @@ export default function Examine() {
 			<circleGeometry args={[.05]}/>
 			<meshBasicMaterial color='cyan'/>
 		</mesh></>}
-		{visuals?.weights && visuals.weights.map(({ x, y, w }) =>
-			<mesh position={[start.x + x, start.y + y, 0]}>
+		{visuals?.weights && grid && visuals.weights.map(({ x, y, w }) => {
+			const tx = x + start.x;
+			const ty = y + start.y;
+			const bad = tx < 0 || tx >= size || ty < 0 || ty >= size || grid[ty * size + tx] >= 255;
+			return <mesh position={[start.x + x, start.y + y, 0]}>
 				<boxGeometry args={[1, 1, 0]}/>
-				<meshBasicMaterial color='red' opacity={w / 2} transparent/>
-			</mesh>)}
-	</>;
+				<meshBasicMaterial color={bad ? 'red' : 'rgb(0,255,0)'} opacity={bad ? .7 : w / 2} transparent/>
+			</mesh>;})}
+	</Canvas></>;
 }

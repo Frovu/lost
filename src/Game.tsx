@@ -1,3 +1,4 @@
+import { Canvas } from '@react-three/fiber';
 import { Level } from './Level';
 import { useLevelState } from './level';
 import { useEffect, useMemo } from 'react';
@@ -70,7 +71,7 @@ export default function Game() {
 		return <line key={at} geometry={geom} material={mat}/>;
 	}), [results]);
 
-	return <>
+	return <Canvas flat orthographic onContextMenu={e => e.preventDefault()}>
 		<Level/>
 		<mesh position={[size-1, size-1, 0]}>
 			<boxGeometry args={[1, 1]}/>
@@ -81,5 +82,5 @@ export default function Game() {
 			<meshBasicMaterial color='cyan'/>
 		</mesh>
 		{paths}
-	</>;
+	</Canvas>;
 }

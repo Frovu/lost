@@ -1,4 +1,3 @@
-import { Canvas } from '@react-three/fiber';
 import Game, { GameControls } from './Game';
 import { LevelControls } from './Level';
 import { useGameState } from './game';
@@ -9,9 +8,7 @@ function App() {
 
 	return <div className='App'>
 		<div style={{ aspectRatio: 1 }}>
-			<Canvas flat orthographic onContextMenu={e => e.preventDefault()}>
-				{examineMode ? <Examine/> : <Game/>}
-			</Canvas>
+			{examineMode ? <Examine/> : <Game/>}
 		</div>
 		<div style={{ display: 'flex', flexFlow: 'column', gap: 16 }}>
 			<LevelControls/>
