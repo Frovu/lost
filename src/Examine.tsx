@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Level } from './Level';
-import { Coords, GameState, Position, neighborsFactory, posEqual, useGameState } from './game';
+import { Coords, GameState, Position, posEqual, useGameState } from './game';
 import { useLevelState } from './level';
 
 import * as THREE from 'three';
-import { PathCurve, computeCurves, drawCurve } from './curves';
+import { computeCurves, drawCurve } from './curves';
 
 const { min, max, round, ceil, floor, PI } = Math;
 
@@ -50,7 +50,7 @@ export default function Examine() {
 
 	const thePath = useMemo(() => {
 		if (!start || !target) return null;
-		const curve = computeCurves(start, target, state)[2];
+		const curve = computeCurves(start, target, state)[0];
 		if (!curve) return null;
 		const { a0, a1, line } = curve;
 		const { turningRadius: r, robotWidth: w, robotLength: l } = state;
@@ -121,7 +121,8 @@ export default function Examine() {
 				const cellPhiE = Math.atan2(y - line.y2, x - line.x2);
 				const ad = (phi - cellPhi + PI*2 + PI) % (PI*2) - PI;
 				const ade = (phi - cellPhiE + PI*2 + PI) % (PI*2) - PI;
-				const tana = phi + (ad > 0 ? 1 : -1) * PI / 2;
+				const isleft = ad > 0;
+				const tana = phi + (isleft ? 1 : -1) * PI / 2;
 				const corner = (floor(tana / PI * 2) * PI / 2) + PI / 4;
 				const cx = Math.cos(corner) / Math.SQRT2;
 				const cy = Math.sin(corner) / Math.SQRT2;
@@ -130,20 +131,20 @@ export default function Examine() {
 				const chyp = Math.sqrt(cdx**2 + cdy**2);
 				const hyp = Math.sqrt(dx**2 + dy**2);
 				const hypE = Math.sqrt((x - line.x2)**2 + (y - line.y2)**2);
-				const cdist = Math.abs(Math.sin(phi - Math.atan2(cdy, cdx)) * chyp);
+				const cdist = Math.sin(phi - Math.atan2(cdy, cdx)) * chyp;
 				const dist = Math.abs(Math.sin(ad) * hyp);
+				const odist = (isleft ? cdist: -cdist) - w / 2; 
 
-				if (dist >= Math.SQRT2 / 2 + .01 && cdist > w / 2)
+				const sq2 = Math.SQRT2 / 2;
+				if (dist > sq2 && odist > 0)
 					continue;
-				let wgt = 1 - dist / Math.SQRT2;
+				let wgt = Math.min(1, odist < -w ? w : (-odist));
 				if (Math.abs(ad) > PI / 2)
 					wgt = hyp >= 1 ? 0 : Math.min(.5, wgt / hyp);
 				if (Math.abs(ade) < PI / 2)
-					wgt = hypE >= 1 ? 0 : Math.min(.5, wgt / hyp);
-				if (hyp === 0 || hypE === 0)
-					wgt = .5;
+					wgt = hypE >= 1 ? 0 : Math.min(.5, wgt / hypE);
 				if (wgt > 0)
-					weights.push({ x, y, w: wgt });
+					weights.push({ x, y, w: Math.min(1, .1 + wgt) });
 			}
 		}
 
@@ -158,28 +159,27 @@ export default function Examine() {
 					const ap1 = a.rot - a.side * PI/2 % (2*PI);
 					const ad = (2*PI + (ap1 - ap0) * a.side) % (2*PI);
 					const pd = (2*PI + (cph - ap0) * a.side) % (2*PI);
+					const centerRadius = Math.sqrt(dx ** 2 + dy ** 2);
+					const inner = centerRadius < r;
+
+					const acorn = (floor(cph / PI * 2) * PI / 2) + PI / 4;
+					const cx = dx + Math.cos(acorn) / Math.SQRT2 * (inner ? 1 : -1);
+					const cy = dy + Math.sin(acorn) / Math.SQRT2 * (inner ? 1 : -1);
+					const cornerRadius = Math.sqrt(cx**2 + cy**2);
 				
-					// console.log(x, y, [ap0, ap1, cph, ad, pd].map(n => (n % (2*PI)) / PI * 180))
 					if ((pd - ad) * (i > 0 ? 1 : -1) > 0)
 						continue;
 
-					const cr = Math.sqrt(dx ** 2 + dy ** 2);
-					const corner = Math.abs(Math.sin(2 * (cph - PI / 2))) * Math.SQRT2 / 4;
-					console.log(x, y, [cph].map(n => (n % (2*PI)) / PI * 180))
-					console.log(corner)
-
-					if (cr > outerR + w / 2 + corner)
+					if (!inner && cornerRadius > outerR)
 						continue;
-					if (cr < innerR - w / 2 - corner)
+					if (inner && cornerRadius < innerR)
 						continue;
 
-					const dist = 1 - Math.abs(r - cr);
-
-					weights.push({ x, y, w: dist });
+					const dist = inner ? innerR - centerRadius : centerRadius - outerR;
+					const wgt = Math.SQRT2 / 2 - dist;
+					weights.push({ x, y, w: Math.max(.05, wgt) });
 				}
 			}
-			
-
 		}
 
 		return { path: drawCurve(curve, state),
@@ -239,7 +239,7 @@ export default function Examine() {
 		{thePath?.weights && thePath.weights.map(({ x, y, w }) =>
 			<mesh position={[start.x + x, start.y + y, 0]}>
 				<boxGeometry args={[1, 1, 0]}/>
-				<meshBasicMaterial color='red' opacity={w / 1.2} transparent/>
+				<meshBasicMaterial color='red' opacity={w} transparent/>
 			</mesh>)}
 	</>;
 }

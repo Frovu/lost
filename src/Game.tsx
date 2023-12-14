@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { computeCost, play, useGameState } from './game';
 
 export function GameControls() {
-	const { isPlaying, costMulti, heuristicMulti, animationSpeed,
+	const { isPlaying, costMulti, heuristicMulti, animationSpeed, robotLength, robotWidth,
 		rotNumber, examineMode, turningRadius, results, set } = useGameState();
 
 	const resultsWithCost = useMemo(() => results.map(res => {
@@ -27,7 +27,13 @@ export function GameControls() {
 			value={costMulti} onChange={e => set('costMulti', e.target.valueAsNumber)}/></label>
 	</div>
 	<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-		<label title='Player turning radius'>Radius
+		<label title='Robot width'>Robot w=
+			<input style={{ marginLeft: 2, width: 64 }} type='number' min='.6' max='2' step='.1'
+				value={robotWidth} onChange={e => set('robotWidth', e.target.valueAsNumber)}/></label>
+		<label title='Robot length'>l=
+			<input style={{ marginLeft: 2, width: 64 }} type='number' min='.1' max='2' step='.1'
+				value={robotLength} onChange={e => set('robotLength', e.target.valueAsNumber)}/></label>
+		<label title='Robot turning radius'>turn r=
 			<input style={{ marginLeft: 2, width: 64 }} type='number' min='0' max='4' step='.1'
 				value={turningRadius} onChange={e => set('turningRadius', e.target.valueAsNumber)}/></label>
 		<label title='Number of possible stationary rotations'>Rot
