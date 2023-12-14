@@ -113,7 +113,7 @@ export default function Examine() {
 			xIntercepts.push([rx, y - .5, -1]);
 		}
 
-		const weights = [];
+		let weights = [];
 		for (let x = floor(minx) - ceil(w); x < ceil(maxx) + ceil(w); ++x) {
 			for (let y = floor(miny) - ceil(w); y < ceil(maxy) + ceil(w); ++y) {
 				const dx = x - line.x1, dy = y - line.y1;
@@ -135,14 +135,13 @@ export default function Examine() {
 				const dist = Math.abs(Math.sin(ad) * hyp);
 				const odist = (isleft ? cdist: -cdist) - w / 2; 
 
-				const sq2 = Math.SQRT2 / 2;
-				if (dist > sq2 && odist > 0)
+				if (dist > .7 && odist > 0)
 					continue;
 				let wgt = Math.min(1, odist < -w ? w : (-odist));
 				if (Math.abs(ad) > PI / 2)
-					wgt = hyp >= 1 ? 0 : Math.min(.5, wgt / hyp);
+					wgt = hyp >= 1 ? 0 : Math.min(1, w, wgt / hyp);
 				if (Math.abs(ade) < PI / 2)
-					wgt = hypE >= 1 ? 0 : Math.min(.5, wgt / hypE);
+					wgt = hypE >= 1 ? 0 : Math.min(1, w, wgt / hypE);
 				if (wgt > 0)
 					weights.push({ x, y, w: Math.min(1, .1 + wgt) });
 			}
@@ -176,11 +175,21 @@ export default function Examine() {
 						continue;
 
 					const dist = inner ? innerR - centerRadius : centerRadius - outerR;
-					const wgt = Math.SQRT2 / 2 - dist;
-					weights.push({ x, y, w: Math.max(.05, wgt) });
+					const wgt = Math.max(.05, Math.min(Math.SQRT2 / 2 - dist, w + .1, 1));
+					const found = weights.find(g => g.x === x && g.y === y);
+					if (found)
+						found.w = (found.w + wgt) / 2;
+					else
+						weights.push({ x, y, w: wgt });
 				}
 			}
 		}
+
+		const dx = target.x - start.x, dy = target.y - start.y;
+		weights = weights.filter(a => a.x !== 0 || a.y !== 0);
+		weights = weights.filter(a => a.x !== dx || a.y !== dy);
+		weights.push({ x: 0, y: 0, w: Math.min(1, w / 2) });
+		weights.push({ x: dx, y: dy, w: Math.min(1, w / 2) });
 
 		return { path: drawCurve(curve, state),
 			curve, weights,
@@ -188,8 +197,6 @@ export default function Examine() {
 			left: new THREE.BufferGeometry().setFromPoints(left.getPoints(32)),
 			right: new THREE.BufferGeometry().setFromPoints(right.getPoints(32)) };
 	}, [start, target, state, rotNumber]);
-
-	// console.log(thePath?.segments)
 
 	const arrow = arrowShape(state);
 
