@@ -69,7 +69,7 @@ export const useGameState = create<GameState>()(persist((set) => ({
 	reset: () => set(st => ({ ...st, results: [] })),
 }), {
 	name: 'you lost',
-	partialize: ({ turningRadius, rotNumber, robotLength, robotWidth, examineMode , heuristicMulti, costMulti}) =>
+	partialize: ({ turningRadius, rotNumber, robotLength, robotWidth, examineMode , heuristicMulti, costMulti }) =>
 		({ turningRadius, rotNumber, robotLength, robotWidth, examineMode, heuristicMulti, costMulti })
 }));
 
@@ -81,7 +81,7 @@ export const play = (force=true) => useGameState.setState(state => {
 	const { addResult } = state;
 	if (!grid) return state;
 	const pathfinder = new Astar({ state, grid, size, animate: true });
-	const rot = Math.ceil(state.rotNumber / 8);
+	const rot = Math.ceil(state.rotNumber / 4);
 	const playerPos = { x: 0, y: 0, rot };
 	const targetPos = { x: size-1, y: size-1, rot };
 	pathfinder.findPath(playerPos, targetPos)
@@ -135,6 +135,7 @@ export function neighborsFactory(params: PathfinderParams) {
 				return null;
 			totalCost += (1 + cost * multi) * w;
 		}
+		totalCost *= curve.reverse ? 1.25 : 1;
 
 		return { x: tx, y: ty, rot: trot, curve, cost: totalCost };
 	}).filter((a): a is Position & {

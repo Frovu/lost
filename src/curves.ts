@@ -191,8 +191,13 @@ export function drawCurveSegment(p: THREE.Path, { line, a0: arc0, a1: arc1, reve
 			a1.phi - a1.side * PI/2,
 			a1.rot - a1.side * PI/2, (a1.side < 0) !== reverse);
 	} else {
-		p.moveTo(x + line.x1, y + line.y1);
-		p.lineTo(x + line.x2, y + line.y2);
+		// this looks pretty stupid
+		const x1 = reverse ? line.x2 : line.x1;
+		const y1 = reverse ? line.y2 : line.y1;
+		const x2 = reverse ? line.x1 : line.x2;
+		const y2 = reverse ? line.y1 : line.y2;
+		p.moveTo(x + x1, y + y1);
+		p.lineTo(x + x2, y + y2);
 	}
 }
 

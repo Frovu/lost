@@ -38,7 +38,8 @@ export const useLevelState = create<LevelState>()(persist((set) => ({
 	}
 }), {
 	name: 'and I become lost',
-	partialize: ({ type, size, animate, pow, multi, resolution, grid }) => ({ type, size, animate, pow, multi, resolution, grid })
+	partialize: ({ type, size, animate, pow, multi, resolution, grid, useVignette }) =>
+		({ type, size, animate, pow, multi, resolution, grid, useVignette })
 }));
 
 export async function generateLevel(animated=true) {
