@@ -59,6 +59,7 @@ export function computeCurves(start: Position, target: Position, state: GameStat
 			result.push({
 				start,
 				target,
+				reverse,
 				line: {
 					x1: x1 + r * Math.cos(phi - side1 * PI / 2),
 					y1: y1 + r * Math.sin(phi - side1 * PI / 2),
@@ -176,21 +177,24 @@ export function renderCurveGridMask({ line, a0, a1, start, target }: PathCurve, 
 	return weights;
 }
 
-export function drawCurve({ line, a0, a1 }: PathCurve, state: GameState) {
+export function drawCurveSegment(p: THREE.Path, { line, a0, a1 }: PathCurve, state: GameState) {
 	const { turningRadius: r } = state;
-	const p = new THREE.Path();
-
+	const { x, y } = p.currentPoint;
 	if (a0 && a1) {
 		p.arc(a0.x, a0.y, r,
 			a0.rot - a0.side * PI/2,
 			a0.phi - a0.side * PI/2, a0.side < 0);
-		p.arc(a1.x - p.currentPoint.x, a1.y - p.currentPoint.y, r,
+		p.arc(x + a1.x - p.currentPoint.x, y + a1.y - p.currentPoint.y, r,
 			a1.phi - a1.side * PI/2,
 			a1.rot - a1.side * PI/2, a1.side < 0);
 	} else {
-		p.moveTo(line.x1, line.y1);
-		p.lineTo(line.x2, line.y2);
+		p.moveTo(x + line.x1, y + line.y1);
+		p.lineTo(x + line.x2, y + line.y2);
 	}
+}
 
+export function drawCurve(curve: PathCurve, state: GameState) {
+	const p = new THREE.Path();
+	drawCurveSegment(p, curve, state);
 	return new THREE.BufferGeometry().setFromPoints(p.getPoints(32));
 }

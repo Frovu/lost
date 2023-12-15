@@ -9,10 +9,13 @@ export type Position = { x: number, y: number, rot: number };
 
 export const posEqual = (a: Position, b: Position) => a.x === b.x && a.y === b.y && a.rot === b.rot;
 
-export type NodeBase = Position & { cost?: number };
+export type NodeBase = Position & {
+	curve?: PathCurve,
+	cost?: number
+};
 
 export type PathfindingResult = {
-	opts: PathfinderParams,
+	params: PathfinderParams,
 	aborted: boolean,
 	path: NodeBase[],
 	nodesVisited: number,
@@ -23,10 +26,12 @@ export type PathfindingResult = {
 const defaultState = {
 	robotLength: 1.2,
 	robotWidth: .8,
+	playerPos: { x: 1, y: 1, rot: 1 },
+	targetPos: { x: 2, y: 2, rot: 1 },
 	turningRadius: 1,
 	neighborsRadius: 2,
 	rotNumber: 16,
-	examineMode: true,
+	examineMode: false,
 	isPlaying: false,
 	animationSpeed: 4,
 	heuristicMulti: 1,
@@ -64,8 +69,8 @@ export const useGameState = create<GameState>()(persist((set) => ({
 	reset: () => set(st => ({ ...st, results: [] })),
 }), {
 	name: 'you lost',
-	partialize: ({ turningRadius, rotNumber, robotLength, robotWidth }) =>
-		({ turningRadius, rotNumber, robotLength, robotWidth })
+	partialize: ({ turningRadius, rotNumber, robotLength, robotWidth, examineMode }) =>
+		({ turningRadius, rotNumber, robotLength, robotWidth, examineMode })
 }));
 
 export const play = (force=true) => useGameState.setState(state => {
@@ -76,9 +81,12 @@ export const play = (force=true) => useGameState.setState(state => {
 	const { addResult } = state;
 	if (!grid) return state;
 	const pathfinder = new Astar({ state, grid, size, animate: true });
-	pathfinder.findPath({ x: 0, y: 0, rot: 0 }, { x: size-1, y: size-1, rot: 0 })
+	const rot = Math.ceil(state.rotNumber / 8);
+	const playerPos = { x: 0, y: 0, rot };
+	const targetPos = { x: size-1, y: size-1, rot };
+	pathfinder.findPath(playerPos, targetPos)
 		.then(res => !res?.aborted && addResult(res));
-	return { ...state, pathfinder, isPlaying: true };
+	return { ...state, playerPos, targetPos, pathfinder, isPlaying: true };
 });
 
 export const distance = (a: Position, b: Position) =>
@@ -107,16 +115,16 @@ export function neighborsFactory(params: PathfinderParams) {
 
 	const { grid, size } = params;
 
-	return <T extends NodeBase>(pos: Position, graph: T[][][]) => rendered[pos.rot].map(({ curve, mask }) => {
+	return (pos: Position) => rendered[pos.rot].map(({ curve, mask }) => {
 		const tx = curve.target.x + pos.x;
 		const ty = curve.target.y + pos.y;
+		const trot = curve.target.rot;
 
 		if (tx < 0 || tx >= size)
 			return null;
 		if (ty < 0 || ty >= size)
 			return null;
 
-		const target = graph[ty][tx][curve.target.rot];
 		const multi = state.costMulti / 256;
 		let totalCost = 0;
 
@@ -128,10 +136,8 @@ export function neighborsFactory(params: PathfinderParams) {
 			totalCost += (1 + cost * multi) * w;
 		}
 
-		console.log(pos, curve.target.rot)
-		return { node: target, curve, cost: totalCost };
-	}).filter((a): a is {
-		node: T,
+		return { x: tx, y: ty, rot: trot, curve, cost: totalCost };
+	}).filter((a): a is Position & {
 		curve: PathCurve,
 		cost: number
 	} => a != null);

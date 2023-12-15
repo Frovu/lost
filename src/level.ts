@@ -13,7 +13,7 @@ const defaultState = {
 	resolution: 20,
 	pow: 16,
 	multi: 64,
-	size: 256,
+	size: 64,
 	overlayGrid: null as null | Uint8ClampedArray,
 	grid: null as null | Uint8ClampedArray
 };

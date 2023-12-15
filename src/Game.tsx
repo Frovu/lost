@@ -3,7 +3,8 @@ import { Level } from './Level';
 import { useLevelState } from './level';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { play, useGameState } from './game';
+import { Position, play, useGameState } from './game';
+import { drawCurveSegment } from './curves';
 
 export function GameControls() {
 	const { isPlaying, costMulti, heuristicMulti, animationSpeed, robotLength, robotWidth,
@@ -13,7 +14,7 @@ export function GameControls() {
 		const path = res.path;
 		let cost = 0;
 		for (let i = 0; i < (path?.length ?? 1) - 1; ++i)
-			cost += 1 // computeCost(path![i], path![i+1], res.opts);
+			cost += path[i]?.cost ?? 0;
 		return { cost, ...res };
 	}), [results]);
 
@@ -46,14 +47,36 @@ export function GameControls() {
 			<input type='checkbox' checked={examineMode} onChange={e => set('examineMode', e.target.checked)}/></label>
 	</div>
 	<div style={{ color: 'var(--color-text-dark)', fontSize: 14 }}>
-		{resultsWithCost.map(({ cost, nodesVisited, at, opts }) =>
-			<div key={at}>h*={opts.state.heuristicMulti} nodesVisited = {nodesVisited}, cost = {cost.toFixed(1)}</div>)}
+		{resultsWithCost.map(({ cost, nodesVisited, at, params }) =>
+			<div key={at}>h*={params.state.heuristicMulti} nodesVisited = {nodesVisited}, cost = {cost.toFixed(1)}</div>)}
 	</div></>;
 }
 
+export function Player({ pos, shadow }: { pos: Position, shadow?: boolean }) {
+	const { robotLength: l, robotWidth: w, rotNumber } = useGameState();
+	const geom = useMemo(() => { 
+		const a = new THREE.Shape();
+		a.moveTo(- l / 2, - w / 8);
+		a.lineTo(- l / 2,   w / 8);
+		a.lineTo(- l / 2,   w / 8);
+		a.lineTo(0,  w / 8);
+		a.lineTo(0, w / 2);
+		a.lineTo(l / 2, 0);
+		a.lineTo(0, - w / 2);
+		a.lineTo(0, - w / 8);
+		a.lineTo(- l / 2, - w / 8);
+		return new THREE.ShapeGeometry(a);
+	}, [l, w]);
+
+	return <mesh position={[pos.x, pos.y, 0]} geometry={geom}
+		rotation={new THREE.Euler(0, 0, pos.rot / rotNumber * Math.PI * 2 )}>
+		<meshBasicMaterial color={shadow ? 'magenta' : 'cyan'} transparent/>
+	</mesh>;
+}
+
 export default function Game() {
-	const { size, grid, isGenerating } = useLevelState();
-	const { pathfinder, results, reset } = useGameState();
+	const { grid, isGenerating } = useLevelState();
+	const { pathfinder, results, playerPos, targetPos, reset } = useGameState();
 
 	useEffect(() => reset(), [grid, reset]);
 
@@ -61,26 +84,25 @@ export default function Game() {
 		if (grid && !pathfinder && !isGenerating) play();
 	}, [grid, isGenerating, pathfinder]);
 
-	const paths = useMemo(() => results.map(({ path, at }, i) => {
+	const paths = useMemo(() => results.map(({ path, at, params }, i) => {
+		const p = new THREE.Path();
+		for (const { curve } of path) {
+			if (curve)
+				drawCurveSegment(p, curve, params.state);
+		}
+
 		const primary = i + 1 === results.length;
 		const color = primary ? 'cyan' : 'red';
 		const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: primary ? 1 : .5 });
-		const geom = new THREE.BufferGeometry();
-		geom.setFromPoints(path.map(({ x, y }) => new THREE.Vector3(x, y, 0)));
+		const geom = new THREE.BufferGeometry().setFromPoints(p.getPoints(32));
 		// @ts-ignore
 		return <line key={at} geometry={geom} material={mat}/>;
 	}), [results]);
 
 	return <Canvas flat orthographic onContextMenu={e => e.preventDefault()}>
 		<Level/>
-		<mesh position={[size-1, size-1, 0]}>
-			<boxGeometry args={[1, 1]}/>
-			<meshBasicMaterial color='magenta'/>
-		</mesh>
-		<mesh position={[0, 0, 0]}>
-			<boxGeometry args={[1, 1]}/>
-			<meshBasicMaterial color='cyan'/>
-		</mesh>
+		<Player pos={playerPos}/>
+		<Player pos={targetPos} shadow={true}/>
 		{paths}
 	</Canvas>;
 }

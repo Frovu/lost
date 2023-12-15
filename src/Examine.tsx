@@ -6,11 +6,10 @@ import { useLevelState } from './level';
 
 import * as THREE from 'three';
 import { computeCurves, drawCurve, renderCurveGridMask } from './curves';
-import { createPortal } from 'react-dom';
 
 const { min, max, round, ceil, PI } = Math;
 
-const arrowShape = (state: GameState) => {
+export const arrowShape = (state: GameState) => {
 	const a = new THREE.Shape();
 	const { robotLength: l, robotWidth: w } = state;
 	a.moveTo(- l / 2, - w / 8);
@@ -45,24 +44,23 @@ export default function Examine() {
 		return { x, y, rot: getrot1tion(x, y, ax, ay) };
 	};
 
-	const graph = useMemo(() => [...Array(size).keys()]
-		.map(y => [...Array(size).keys()]
-			.map(x => [...Array(rotNumber).keys()]
-				.map(rot => ({ x, y, rot }))))
-	, [size, rotNumber]);
+	// const graph = useMemo(() => [...Array(size).keys()]
+	// 	.map(y => [...Array(size).keys()]
+	// 		.map(x => [...Array(rotNumber).keys()]
+	// 			.map(rot => ({ x, y, rot }))))
+	// , [size, rotNumber]);
 
 	const allPaths = useMemo(() => {
 		if (!start || !grid) return null;
 		const fact = neighborsFactory({ state, grid, size, animate: true });
-		return fact(start, graph);
-	}, [start, grid, state, size, graph]);
+		return fact(start);
+	}, [start, grid, state, size]);
 
 	const allCurves = useMemo(() => allPaths?.map(({ curve }) => drawCurve(curve, state)), [allPaths, state]);
 
 	const thePath = useMemo(() =>
-		target && allPaths?.find(({ node }) => posEqual(node, target))
+		target && allPaths?.find((res) => posEqual(res, target))
 	, [allPaths, target]);
-	console.log(allPaths, thePath)
 
 	const visuals = useMemo(() => {
 		if (!start || !target || !grid) return null;
@@ -97,10 +95,10 @@ export default function Examine() {
 				a1.phi - a1.side * PI/2,
 				a1.rot - a1.side * PI/2, a1.side < 0);
 		} else {
-			left.moveTo(tanX, tanY);
-			left.lineTo(tanX + line.x2 - line.x1, tanY + line.y2 - line.y1);
-			right.moveTo(-tanX, -tanY);
-			right.lineTo(-tanX + line.x2 - line.x1, -tanY + line.y2 - line.y1);
+			left.moveTo( tanX + line.x1,  tanY + line.y1);
+			left.lineTo( tanX + line.x2,  tanY + line.y2);
+			right.moveTo(-tanX + line.x1, -tanY + line.y1);
+			right.lineTo(-tanX + line.x2, -tanY + line.y2);
 		}
 
 		const yIntercepts = [], xIntercepts = [];
