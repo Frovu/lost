@@ -10,6 +10,7 @@ export type Line = { x1: number, y1: number, x2: number, y2: number };
 export type PathCurve = {
 	start: Position,
 	target: Position,
+	reverse: boolean,
 	line: Line,
 	a0?: Arc,
 	a1?: Arc
@@ -32,7 +33,7 @@ export function computeCurves(start: Position, target: Position, state: GameStat
 		// check for straight line
 		const angle = (Math.atan2(dy, dx) + 2 * PI) % (2 * PI);
 		if (Math.abs(rot1 - rot2) + Math.abs(rot1 - angle) < .001) {
-			return [{ line: { x1: x0, y1: y0, x2: x0 + dx, y2: y0 + dy }, start, target }];
+			return [{ line: { x1: x0, y1: y0, x2: x0 + dx, y2: y0 + dy }, start, target, reverse }];
 		}
 
 		for (const [side1, side2] of [[-1, 1], [1, -1], [1, 1], [-1, -1]] as const) {
@@ -177,16 +178,18 @@ export function renderCurveGridMask({ line, a0, a1, start, target }: PathCurve, 
 	return weights;
 }
 
-export function drawCurveSegment(p: THREE.Path, { line, a0, a1 }: PathCurve, state: GameState) {
+export function drawCurveSegment(p: THREE.Path, { line, a0: arc0, a1: arc1, reverse }: PathCurve, state: GameState) {
 	const { turningRadius: r } = state;
 	const { x, y } = p.currentPoint;
-	if (a0 && a1) {
+	if (arc0 && arc1) {
+		const a0 = reverse ? arc1 : arc0;
+		const a1 = reverse ? arc0 : arc1;
 		p.arc(a0.x, a0.y, r,
 			a0.rot - a0.side * PI/2,
-			a0.phi - a0.side * PI/2, a0.side < 0);
+			a0.phi - a0.side * PI/2, (a0.side < 0) !== reverse);
 		p.arc(x + a1.x - p.currentPoint.x, y + a1.y - p.currentPoint.y, r,
 			a1.phi - a1.side * PI/2,
-			a1.rot - a1.side * PI/2, a1.side < 0);
+			a1.rot - a1.side * PI/2, (a1.side < 0) !== reverse);
 	} else {
 		p.moveTo(x + line.x1, y + line.y1);
 		p.lineTo(x + line.x2, y + line.y2);

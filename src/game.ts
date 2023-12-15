@@ -69,8 +69,8 @@ export const useGameState = create<GameState>()(persist((set) => ({
 	reset: () => set(st => ({ ...st, results: [] })),
 }), {
 	name: 'you lost',
-	partialize: ({ turningRadius, rotNumber, robotLength, robotWidth, examineMode }) =>
-		({ turningRadius, rotNumber, robotLength, robotWidth, examineMode })
+	partialize: ({ turningRadius, rotNumber, robotLength, robotWidth, examineMode , heuristicMulti, costMulti}) =>
+		({ turningRadius, rotNumber, robotLength, robotWidth, examineMode, heuristicMulti, costMulti })
 }));
 
 export const play = (force=true) => useGameState.setState(state => {
