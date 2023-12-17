@@ -53,7 +53,7 @@ export function GameControls() {
 	</div>
 	<div style={{ color: 'var(--color-text-dark)', fontSize: 14 }}>
 		{resultsWithCost.map(({ cost, nodesVisited, at, params }) =>
-			<div key={at}>h*={params.state.heuristicMulti} nodesVisited = {nodesVisited}, cost = {cost.toFixed(1)}</div>)}
+			<div key={at}>{params.state.algorithm.split(' ')[0]} h*={params.state.heuristicMulti} nodesVisited = {nodesVisited}, cost = {cost.toFixed(1)}</div>)}
 	</div></>;
 }
 
@@ -90,7 +90,6 @@ export default function Game() {
 	}, [grid, isGenerating, pathfinder]);
 
 	const paths = useMemo(() => results.map(({ path, at, params }, i) => {
-		console.log(path)
 		const p = new THREE.Path();
 		for (const { curve } of path) {
 			if (curve)

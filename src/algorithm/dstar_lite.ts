@@ -1,13 +1,13 @@
 import { PriorityQueue } from '@datastructures-js/priority-queue';
-import { GameState, NodeBase, Pathfinder, PathfinderParams, PathfindingResult, Position, neighborsFactory, posEqual, useGameState } from '../game';
+import { NodeBase, Pathfinder, PathfinderParams, PathfindingResult, Position, neighborsFactory, posEqual, useGameState } from '../game';
 import { animatePathfinding } from '../level';
-import { PathCurve } from '../curves';
 
 type Node = NodeBase & {
 	rhs: number,
 	g: number,
 	k1: number,
 	k2: number,
+	visists: number,
 };
 
 const nodeDefaults = {
@@ -15,6 +15,7 @@ const nodeDefaults = {
 	g: Infinity,
 	k1: 0,
 	k2: 0,
+	visists: 0,
 };
 
 function compare(a: Node, b: Node) {
@@ -28,7 +29,7 @@ function compare(a: Node, b: Node) {
 function heuristicFoo(pos: Position, target: Position, rotNumber: number) {
 	const dist = Math.abs(target.x - pos.x) + Math.abs(target.y - pos.y);
 	const rotDiff = Math.abs(target.rot - pos.rot) / rotNumber;
-	return dist + rotDiff;
+	return dist + rotDiff * 3;
 }
 
 export default class DstarLite implements Pathfinder {
@@ -55,7 +56,7 @@ export default class DstarLite implements Pathfinder {
 			for (const p of neighbors(cur)) {
 				const node = this.graph![p.y][p.x][p.rot];
 				const r = node.g + p.cost;
-				if (!min || minR > r) {
+				if (!min || minR >= r) {
 					node.curve = p.curve;
 					min = node;
 					minR = r;
@@ -103,8 +104,11 @@ export default class DstarLite implements Pathfinder {
 
 		while (queue.front() && (compare(queue.front(), calculateKey(start)) <= 0 || start.rhs > start.g)) {
 			const node = queue.pop();
-			const old = { ...node, cost: 0 }; // this may be slow
 			totalVisits++;
+			
+			node.visists ++;
+			if (node.visists > 2)
+				continue;
 
 			if (this.stopFlag) {
 				animatePathfinding(null);
@@ -118,7 +122,10 @@ export default class DstarLite implements Pathfinder {
 				};
 			}
 
-			if (compare(old, calculateKey(node)) < 0) {
+			const oldK1 = node.k1;
+			const oldK2 = node.k2;
+			calculateKey(node);
+			if (oldK1 < node.k1 || (oldK1 === node.k1 && oldK2 < node.k2)) {
 				queue.enqueue(node);
 
 			} else if (node.g > node.rhs) {
@@ -130,18 +137,19 @@ export default class DstarLite implements Pathfinder {
 					updateNode(neighbor);
 				}
 			} else {
-				const gOld = old.g;
-				old.g = Infinity;
-				for (const { x, y, rot, cost } of [...neighbors(node), old]) {
+				const gOld = node.g;
+				node.g = Infinity;
+				for (const { x, y, rot, cost } of [...neighbors(node), node]) {
 					const s = graph[y][x][rot];
-					if (s.rhs === gOld + cost && s !== target)
+					if (s.rhs === gOld + (cost ?? 0) && s !== target)
 						s.rhs = Math.min.apply(null, neighbors(s)
 							.map(n => n.cost + graph[n.y][n.x][n.rot].g));
 					
 					updateNode(s);
 				}
 			}
-			if (params.animate) {
+
+			if (params.animate && totalVisits % useGameState.getState().animationSpeed === 0) {
 				meta.fill(0);
 				for (const { x, y } of queue.toArray()) {
 					const found = graph[y][x].find(n => isFinite(n.g) && n.g === n.rhs);
@@ -149,8 +157,6 @@ export default class DstarLite implements Pathfinder {
 
 				}
 				meta[node.y * size + node.x] = 3;
-			}
-			if (params.animate && totalVisits % useGameState.getState().animationSpeed === 0) {
 				await animatePathfinding(meta.slice());
 			}
 		}

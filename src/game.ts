@@ -34,7 +34,7 @@ const defaultState = {
 	algorithm: 'D* lite' as typeof algoOptions[number],
 	turningRadius: 1,
 	neighborsRadius: 2,
-	rotNumber: 16,
+	rotNumber: 8,
 	examineMode: false,
 	isPlaying: false,
 	animationSpeed: 4,
@@ -141,7 +141,7 @@ export function neighborsFactory(params: PathfinderParams, reverse=false) {
 				return null;
 			totalCost += (1 + cost * multi) * w;
 		}
-		totalCost *= reverse !== curve.reverse ? 1.5 : 1;
+		totalCost *= reverse !== curve.reverse ? 4 : 1;
 
 		return { x: tx, y: ty, rot: trot, curve, cost: totalCost };
 	}).filter((a): a is Position & {

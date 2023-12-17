@@ -16,7 +16,7 @@ export type PathCurve = {
 	a1?: Arc
 };
 
-export function computeCurves(start: Position, target: Position, state: GameState, rev=false): PathCurve[] {
+export function computeCurves(start: Position, target: Position, state: GameState): PathCurve[] {
 	const { rotNumber, turningRadius: r } = state;
 	const result = [];
 	for (const reverse of [false, true]) {
