@@ -3,12 +3,12 @@ import { Level } from './Level';
 import { useLevelState } from './level';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { Position, play, useGameState } from './game';
+import { Position, algoOptions, play, useGameState } from './game';
 import { drawCurveSegment } from './curves';
 
 export function GameControls() {
 	const { isPlaying, costMulti, heuristicMulti, animationSpeed, robotLength, robotWidth,
-		rotNumber, examineMode, turningRadius, results, set } = useGameState();
+		algorithm, rotNumber, examineMode, turningRadius, results, set } = useGameState();
 
 	const resultsWithCost = useMemo(() => results.map(res => {
 		const path = res.path;
@@ -21,7 +21,12 @@ export function GameControls() {
 	return <><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
 		<button style={{ width: 128, color: isPlaying ? 'var(--color-active)' : 'unset' }}
 			onClick={() => play()}>PLAY{isPlaying ? 'ING' : ''}</button>
-		<label title='animation speed'>speed*=<input style={{ marginLeft: 2, width: 64 }} type='number' min='8' max='256' step='8'
+		<label title='Pathfinding algorithm'>
+			<select style={{ marginLeft: 2, width: 48 }}
+				value={algorithm} onChange={e => set('algorithm', e.target.value as any)}>
+				{algoOptions.map(n => <option key={n} value={n}>{n}</option>)}
+			</select></label>
+		<label title='animation speed'>spd*=<input style={{ marginLeft: 2, width: 64 }} type='number' min='8' max='256' step='8'
 			value={animationSpeed} onChange={e => set('animationSpeed', e.target.valueAsNumber)}/></label>
 		<label title='heuristic multiplier'>h*=<input style={{ marginLeft: 2, width: 64 }} type='number' min='1' max='64' step='.1'
 			value={heuristicMulti} onChange={e => set('heuristicMulti', e.target.valueAsNumber)}/></label>
@@ -85,6 +90,7 @@ export default function Game() {
 	}, [grid, isGenerating, pathfinder]);
 
 	const paths = useMemo(() => results.map(({ path, at, params }, i) => {
+		console.log(path)
 		const p = new THREE.Path();
 		for (const { curve } of path) {
 			if (curve)

@@ -3,6 +3,9 @@ import Astar from './algorithm/astar';
 import { useLevelState } from './level';
 import { PathCurve, computeCurves, renderCurveGridMask } from './curves';
 import { persist } from 'zustand/middleware';
+import DstarLite from './algorithm/dstar_lite';
+
+export const algoOptions = ['A*', 'D* lite'] as const;
 
 export type Coords = { x: number, y: number };
 export type Position = { x: number, y: number, rot: number };
@@ -28,6 +31,7 @@ const defaultState = {
 	robotWidth: .8,
 	playerPos: { x: 1, y: 1, rot: 1 },
 	targetPos: { x: 2, y: 2, rot: 1 },
+	algorithm: 'D* lite' as typeof algoOptions[number],
 	turningRadius: 1,
 	neighborsRadius: 2,
 	rotNumber: 16,
@@ -69,8 +73,8 @@ export const useGameState = create<GameState>()(persist((set) => ({
 	reset: () => set(st => ({ ...st, results: [] })),
 }), {
 	name: 'you lost',
-	partialize: ({ turningRadius, rotNumber, robotLength, robotWidth, examineMode , heuristicMulti, costMulti }) =>
-		({ turningRadius, rotNumber, robotLength, robotWidth, examineMode, heuristicMulti, costMulti })
+	partialize: ({ algorithm, turningRadius, rotNumber, robotLength, robotWidth, examineMode , heuristicMulti, costMulti }) =>
+		({ algorithm, turningRadius, rotNumber, robotLength, robotWidth, examineMode, heuristicMulti, costMulti })
 }));
 
 export const play = (force=true) => useGameState.setState(state => {
@@ -78,9 +82,11 @@ export const play = (force=true) => useGameState.setState(state => {
 		return state;
 	state.pathfinder?.stop();
 	const { grid, size } = useLevelState.getState();
-	const { addResult } = state;
+	const { addResult, algorithm } = state;
 	if (!grid) return state;
-	const pathfinder = new Astar({ state, grid, size, animate: true });
+	const pathfinder = algorithm === 'A*'
+		? new Astar({ state, grid, size, animate: true })
+		: new DstarLite({ state, grid, size, animate: true });
 	const rot = Math.ceil(state.rotNumber / 4);
 	const playerPos = { x: 0, y: 0, rot };
 	const targetPos = { x: size-1, y: size-1, rot };
@@ -92,7 +98,7 @@ export const play = (force=true) => useGameState.setState(state => {
 export const distance = (a: Position, b: Position) =>
 	Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
 
-export function neighborsFactory(params: PathfinderParams) {
+export function neighborsFactory(params: PathfinderParams, reverse=false) {
 	const state = params.state;
 	const { neighborsRadius, rotNumber } = state;
 	const curves: PathCurve[][] = Array(rotNumber).fill(null).map(() => []);
@@ -135,7 +141,7 @@ export function neighborsFactory(params: PathfinderParams) {
 				return null;
 			totalCost += (1 + cost * multi) * w;
 		}
-		totalCost *= curve.reverse ? 1.25 : 1;
+		totalCost *= reverse !== curve.reverse ? 1.5 : 1;
 
 		return { x: tx, y: ty, rot: trot, curve, cost: totalCost };
 	}).filter((a): a is Position & {

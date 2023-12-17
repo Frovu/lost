@@ -50,7 +50,7 @@ export default class Astar implements Pathfinder{
 		const { graph, params } = this;
 		const hMulti = params.state.heuristicMulti;
 		const target = graph[targetPos.y][targetPos.x][targetPos.rot];
-		const start = graph[startPos.y][startPos.x][targetPos.rot];
+		const start = graph[startPos.y][startPos.x][startPos.rot];
 		let current = start;
 		start.g = 0;
 		let totalVisits = 0;
@@ -113,6 +113,7 @@ export default class Astar implements Pathfinder{
 			}
 		}
 
+		animatePathfinding(null);
 		return {
 			params,
 			aborted: this.stopFlag,
