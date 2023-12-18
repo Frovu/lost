@@ -179,7 +179,7 @@ export default function Examine() {
 		</mesh>}
 		{/* @ts-ignore */}
 		{allCurves && allCurves.map(p => <line geometry={p} position={[start.x, start.y, 0]}>
-			<lineBasicMaterial color='rgb(100,50,50)' opacity={.5} transparent/>
+			<lineBasicMaterial color='rgb(100,50,50)' opacity={.8} transparent/>
 		</line>) }
 		{/* @ts-ignore */}
 		{visuals?.path && <line geometry={visuals.path} position={[start.x, start.y, 0]}>

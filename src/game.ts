@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import Astar from './algorithm/astar';
 import { useLevelState } from './level';
 import { PathCurve, computeCurves, renderCurveGridMask } from './curves';
 import { persist } from 'zustand/middleware';
@@ -30,6 +29,7 @@ const defaultState = {
 	action: null as null | { action: typeof actions[number], stage: number },
 	examineMode: false,
 	isPlaying: false,
+	isPathfinding: false,
 	animationSpeed: 4,
 	heuristicMulti: 1,
 	costMulti: 4,
@@ -71,31 +71,41 @@ export const useGameState = create<GameState>()(persist((set) => ({
 	set: (k, val) => {
 		set(st => ({ ...st, [k]: val }));
 		if (['heuristicMulti', 'costMulti'].includes(k))
-			play(false);
+			findPath(false);
 		if (['playerPos', 'targetPos'].includes(k))
 			set(st => ({ ...st, results: [] }));
 	},
-	addResult: (res) => set(st => ({ ...st, isPlaying: false, results: [...st.results, res] })),
-	reset: () => set(st => ({ ...st, results: [] })),
+	addResult: (res) => set(st => ({ ...st, isPathfinding: false, results: [...st.results, res] })),
+	reset: () => set(st => {
+		st.pathfinder?.stop();
+		return { ...st, results: [], isPlaying: false, isPathfinding: false }; }),
 }), {
 	name: 'you lost',
 	partialize: ({ algorithm, turningRadius, rotNumber, robotLength, robotWidth, examineMode , heuristicMulti, costMulti }) =>
 		({ algorithm, turningRadius, rotNumber, robotLength, robotWidth, examineMode, heuristicMulti, costMulti })
 }));
 
-export const play = (force=true) => useGameState.setState(state => {
-	if (state.isPlaying && !force)
+export const play = () => useGameState.setState(state => {
+	if (state.isPlaying) {
+		state.pathfinder?.stop();
+		return { ...state, isPlaying: false };
+	}
+	
+	return { ...state, isPlaying: true };
+});
+
+export const findPath = (force=true) => useGameState.setState(state => {
+	const { addResult, playerPos, targetPos } = state;
+	const { grid, size } = useLevelState.getState();
+	if (!grid || (state.isPathfinding && !force))
 		return state;
 	state.pathfinder?.stop();
-	const { grid, size } = useLevelState.getState();
-	const { addResult, algorithm, playerPos, targetPos } = state;
-	if (!grid) return state;
-	const pathfinder = algorithm === 'A*'
-		? new Astar({ state, grid, size, animate: true })
-		: new DstarLite({ state, grid, size, animate: true });
+
+	const pathfinder = new DstarLite({ state, grid, size, animate: true });
 	pathfinder.findPath(playerPos, targetPos)
 		.then(res => !res?.aborted && addResult(res));
-	return { ...state, playerPos, targetPos, pathfinder, isPlaying: true };
+
+	return { ...state, playerPos, targetPos, pathfinder, isPathfinding: true };
 });
 
 export const distance = (a: Position, b: Position) =>
@@ -133,7 +143,7 @@ export const initRandomLevel = async () => {
 			console.timeEnd('level init');
 			useGameState.setState(st => ({
 				...st, results: [], playerPos: start, targetPos: goal }));
-			return play();
+			return findPath();
 		}
 	}
 	console.log('too much random retries');

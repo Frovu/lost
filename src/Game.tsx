@@ -3,11 +3,11 @@ import { Level } from './Level';
 import { useLevelState } from './level';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { Coords, Position, actions, algoOptions, initRandomLevel, play, useGameState } from './game';
+import { Coords, Position, actions, algoOptions, findPath, initRandomLevel, play, useGameState } from './game';
 import { drawCurveSegment } from './curves';
 
 export function GameControls() {
-	const { isPlaying, costMulti, heuristicMulti, animationSpeed, robotLength, robotWidth, action,
+	const { isPlaying, isPathfinding, costMulti, heuristicMulti, animationSpeed, robotLength, robotWidth, action,
 		algorithm, rotNumber, examineMode, turningRadius, results, set } = useGameState();
 
 	const resultsWithCost = useMemo(() => results.map(res => {
@@ -23,11 +23,11 @@ export function GameControls() {
 
 	return <div style={{ display: 'flex', gap: 8, flexFlow: 'column' }}>
 		<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-			<button style={{ width: 128, color: action?.action === 'draw' ? 'var(--color-active)' : 'unset' }}
+			<button style={{ width: 110, color: action?.action === 'draw' ? 'var(--color-active)' : 'unset' }}
 				onClick={setAction('draw')}><u>D</u>RAW</button>
-			<button style={{ width: 110, color: action?.action === 'set goal' ? 'var(--color-active)' : 'unset' }}
+			<button style={{ width: 128, ...(action?.action === 'set goal' && { color: 'var(--color-active)' }) }}
 				disabled={isPlaying} onClick={setAction('set goal')}>SET <u>G</u>OAL</button>
-			<button style={{ width: 110, color: action?.action === 'set pos' ? 'var(--color-active)' : 'unset' }}
+			<button style={{ width: 110, ...(action?.action === 'set pos' && { color: 'var(--color-active)' }) }}
 				disabled={isPlaying} onClick={setAction('set pos')}>SET <u>P</u>OS</button>
 			<button style={{ width: 110 }}
 				disabled={isPlaying} onClick={() => initRandomLevel()}>RAND POS</button>
@@ -35,19 +35,21 @@ export function GameControls() {
 				<input type='checkbox' checked={examineMode} onChange={e => set('examineMode', e.target.checked)}/></label>
 		</div>
 		<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-			<button style={{ width: 128, color: isPlaying ? 'var(--color-active)' : 'unset' }}
-				onClick={() => play()}>PLAY{isPlaying ? 'ING' : ''}</button>
-			<label title='Pathfinding algorithm'>
+			<button style={{ width: 110, color: isPlaying ? 'var(--color-active)' : 'unset' }}
+				onClick={() => set('isPlaying', !isPlaying)}>PLAY{isPlaying ? 'ING' : ''}</button>
+			<button style={{ width: 128, color: isPathfinding ? 'var(--color-active)' : 'unset' }}
+				onClick={() => findPath()}>PATHFIND{isPathfinding ? 'ING' : ''}</button>
+			{/* <label title='Pathfinding algorithm'>
 				<select style={{ marginLeft: 2, width: 48 }}
 					value={algorithm} onChange={e => set('algorithm', e.target.value as any)}>
 					{algoOptions.map(n => <option key={n} value={n}>{n}</option>)}
-				</select></label>
-			<label title='animation speed'>spd*=<input style={{ marginLeft: 2, width: 64 }} type='number' min='8' max='256' step='8'
-				value={animationSpeed} onChange={e => set('animationSpeed', e.target.valueAsNumber)}/></label>
+				</select></label> */}
 			<label title='heuristic multiplier'>h*=<input style={{ marginLeft: 2, width: 64 }} type='number' min='1' max='64' step='.1'
 				value={heuristicMulti} onChange={e => set('heuristicMulti', e.target.valueAsNumber)}/></label>
-			<label title='terrain cost multiplier'>cost*=<input style={{ marginLeft: 2, width: 64 }} type='number' min='1' max='64' step='1'
+			<label title='terrain cost multiplier'>c*=<input style={{ marginLeft: 2, width: 56 }} type='number' min='1' max='64' step='1'
 				value={costMulti} onChange={e => set('costMulti', e.target.valueAsNumber)}/></label>
+			<label title='animation speed'>spd*=<input style={{ marginLeft: 2, width: 56 }} type='number' min='8' max='256' step='8'
+				value={animationSpeed} onChange={e => set('animationSpeed', e.target.valueAsNumber)}/></label>
 		</div>
 		<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
 			<label title='Robot width'>Robot w=
@@ -99,18 +101,28 @@ export function Player({ pos, shadow }: { pos: Position, shadow?: boolean }) {
 export default function Game() {
 	const { grid, size, isGenerating, drawObstacle, startDrawing, finishDrawing, undoObstacle } = useLevelState();
 	const state = useGameState();
-	const { pathfinder, results, playerPos, targetPos, rotNumber, action: act, set, reset } = state;
+	const { pathfinder, isPlaying, results, playerPos, targetPos, rotNumber, action: act, set, reset } = state;
 	const action = act?.action, stage = act?.stage;
 
 	useEffect(() => {
 		const listener = (e: KeyboardEvent) => {
 			if (e.code === 'KeyZ') {
 				undoObstacle();
+			} else if (e.code === 'KeyD') {
+				set('action', { action: 'draw', stage: 0 });
+			} else if (e.code === 'KeyP' && !isPlaying) {
+				set('action', { action: 'set pos', stage: 0 });
+			} else if (e.code === 'KeyG' && !isPlaying) {
+				set('action', { action: 'set goal', stage: 0 });
+			} else if (e.code === 'Escape') {
+				set('action', null);
+			} else if (e.code === 'Space') {
+				set('isPlaying', !isPlaying);
 			}
 		};
 		document.body.addEventListener('keydown', listener);
 		return () => document.body.removeEventListener('keydown', listener);
-	}, [undoObstacle]);
+	}, [isPlaying, set, undoObstacle]);
 
 	const closestNode = ({ x: ax, y: ay }: Coords) => {
 		const [x, y] = [ax, ay].map(a => Math.max(0, Math.min(Math.round(a), size - 1)));
@@ -129,6 +141,14 @@ export default function Game() {
 		if (grid && !pathfinder && !isGenerating)
 			initRandomLevel();
 	}, [grid, isGenerating, pathfinder]);
+
+	useEffect(() => {
+		if (isPlaying && action && action !== 'draw')
+			set('action', null);
+		const interv = () => {
+
+		};
+	}, [isPlaying]);
 
 	const paths = useMemo(() => results.map(({ path, at, params }, i) => {
 		const p = new THREE.Path();
@@ -156,6 +176,7 @@ export default function Game() {
 						set('action', { action, stage: 1 });
 					} else {
 						set('action', null);
+						findPath(false);
 					}
 				}
 			},
