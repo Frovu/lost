@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber';
 import { Level } from './Level';
 import { useLevelState } from './level';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { Coords, Position, actions, algoOptions, initRandomLevel, play, useGameState } from './game';
 import { drawCurveSegment } from './curves';
@@ -97,11 +97,20 @@ export function Player({ pos, shadow }: { pos: Position, shadow?: boolean }) {
 }
 
 export default function Game() {
-	const { grid, size, isGenerating, drawObstacle, finishDrawing } = useLevelState();
+	const { grid, size, isGenerating, drawObstacle, startDrawing, finishDrawing, undoObstacle } = useLevelState();
 	const state = useGameState();
 	const { pathfinder, results, playerPos, targetPos, rotNumber, action: act, set, reset } = state;
 	const action = act?.action, stage = act?.stage;
-	const [isDrawing, setDrawing] = useState(false);
+
+	useEffect(() => {
+		const listener = (e: KeyboardEvent) => {
+			if (e.code === 'KeyZ') {
+				undoObstacle();
+			}
+		};
+		document.body.addEventListener('keydown', listener);
+		return () => document.body.removeEventListener('keydown', listener);
+	}, [undoObstacle]);
 
 	const closestNode = ({ x: ax, y: ay }: Coords) => {
 		const [x, y] = [ax, ay].map(a => Math.max(0, Math.min(Math.round(a), size - 1)));
@@ -159,21 +168,21 @@ export default function Game() {
 						set(which, { ...state[which], rot: getRotation(e.point, state[which]) });
 					}
 				} else if (action === 'draw') {
-					if (isDrawing)
-						drawObstacle(closestNode(e.point));
+					drawObstacle(closestNode(e.point));
 				}
 			},
 			onPointerDown: e => {
 				if (action === 'draw') {
-					setDrawing(true);
+					startDrawing();
 					drawObstacle(closestNode(e.point));
 				}
-
 			},
 			onPointerUp: () => {
-				setDrawing(false);
 				finishDrawing();
-			}
+			},
+			onPointerLeave: () => {
+				finishDrawing();
+			},
 		}}/>
 		<Player pos={playerPos}/>
 		<Player pos={targetPos} shadow={true}/>

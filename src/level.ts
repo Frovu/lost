@@ -24,8 +24,9 @@ const defaultState = {
 export type LevelState = typeof defaultState & {
 	set: <T extends keyof typeof defaultState>(k: T, val: typeof defaultState[T]) => void,
 	drawObstacle: (pos: Coords) => void,
+	startDrawing: () => void,
 	finishDrawing: () => void,
-	// undoObstacle: () => void,
+	undoObstacle: () => void,
 };
 
 export const animatePathfinding = (grid: Uint8ClampedArray | null) => {
@@ -43,26 +44,38 @@ export const useLevelState = create<LevelState>()(persist((set) => ({
 			generateLevel(true);
 	},
 	drawObstacle: (pos) => set(st => {
+		if (!st.isDrawing) return st;
 		const obstacles = st.obstacles.slice();
-		if (!st.isDrawing || obstacles.length < 1)
-			obstacles.push([]);
-		const last = obstacles.at(-1)!.slice();
+		const last = obstacles.at(-1);
+		if (!last) return st;
 		if (!last.find(p => p.x === pos.x && p.y === pos.y))
-			last.push(pos);
+			last.push({ x: pos.x, y: pos.y });
 		const grid = st.grid?.slice() ?? null;
 		if (grid)
 			grid[pos.y * st.size + pos.x] = 255;
-
 		return { ...st, isDrawing: true, obstacles, grid };
+	}),
+	undoObstacle: () => set(st => {
+		const obstacle = st.obstacles.at(-1);
+		if (!obstacle || !st.grid) return st;
+		const grid = st.grid.slice();
+		for (const { x, y } of obstacle) {
+			const c = y * st.size + x;
+			grid[c] = st.originalGrid![c];
+		}
+		return { ...st, grid, obstacles: st.obstacles.slice(0, -1) };
+	}),
+	startDrawing: () => set(st => {
+		return { ...st, isDrawing: true, obstacles: st.obstacles.concat([[]]) };
 	}),
 	finishDrawing: () => set(st => {
 		return { ...st, isDrawing: false };
 	})
 }), {
 	name: 'and I become lost',
-	partialize: ({ type, size, animate, pow, multi, resolution, grid, useVignette }) =>
+	partialize: ({ type, size, animate, pow, multi, resolution, grid, originalGrid, useVignette }) =>
 		({ type, size, animate, pow, multi, resolution, useVignette,
-			grid: grid && Array.from(grid) })
+			grid: grid && Array.from(grid), originalGrid: originalGrid && Array.from(originalGrid) })
 }));
 
 export async function generateLevel(animated=true) {
