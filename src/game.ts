@@ -6,6 +6,7 @@ import { persist } from 'zustand/middleware';
 import DstarLite from './algorithm/dstar_lite';
 
 export const algoOptions = ['A*', 'D* lite'] as const;
+export const actions = ['draw', 'set goal', 'set pos'] as const;
 
 export type Coords = { x: number, y: number };
 export type Position = { x: number, y: number, rot: number };
@@ -26,6 +27,7 @@ const defaultState = {
 	turningRadius: 1,
 	neighborsRadius: 2,
 	rotNumber: 8,
+	action: null as null | { action: typeof actions[number], stage: number },
 	examineMode: false,
 	isPlaying: false,
 	animationSpeed: 4,
@@ -70,6 +72,8 @@ export const useGameState = create<GameState>()(persist((set) => ({
 		set(st => ({ ...st, [k]: val }));
 		if (['heuristicMulti', 'costMulti'].includes(k))
 			play(false);
+		if (['playerPos', 'targetPos'].includes(k))
+			set(st => ({ ...st, results: [] }));
 	},
 	addResult: (res) => set(st => ({ ...st, isPlaying: false, results: [...st.results, res] })),
 	reset: () => set(st => ({ ...st, results: [] })),

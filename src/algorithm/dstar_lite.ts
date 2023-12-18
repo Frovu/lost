@@ -27,7 +27,7 @@ function compare(a: Node, b: Node) {
 }
 
 function heuristicFoo(pos: Position, target: Position, rotNumber: number, multi: number) {
-	const dist = Math.abs(target.x - pos.x) + Math.abs(target.y - pos.y);
+	const dist = Math.sqrt((target.x - pos.x) ** 2 + (target.y - pos.y) ** 2);
 	const rotDiff = Math.abs(target.rot - pos.rot) / rotNumber;
 	return dist * 1.5 * multi + rotDiff * 2;
 }

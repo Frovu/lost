@@ -3,11 +3,11 @@ import { Level } from './Level';
 import { useLevelState } from './level';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { Position, algoOptions, initRandomLevel, play, useGameState } from './game';
+import { Coords, Position, actions, algoOptions, initRandomLevel, play, useGameState } from './game';
 import { drawCurveSegment } from './curves';
 
 export function GameControls() {
-	const { isPlaying, costMulti, heuristicMulti, animationSpeed, robotLength, robotWidth,
+	const { isPlaying, costMulti, heuristicMulti, animationSpeed, robotLength, robotWidth, action,
 		algorithm, rotNumber, examineMode, turningRadius, results, set } = useGameState();
 
 	const resultsWithCost = useMemo(() => results.map(res => {
@@ -18,19 +18,21 @@ export function GameControls() {
 		return { cost, ...res };
 	}), [results]);
 
+	const setAction = (act: typeof actions[number]) => () =>
+		set('action', action?.action === act ? null : { action: act, stage: 0 });
+
 	return <div style={{ display: 'flex', gap: 8, flexFlow: 'column' }}>
 		<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-			<button style={{ width: 128 }}
-				onClick={() => {}}>DRAW</button>
-			<button style={{ width: 110 }}
-				disabled={isPlaying} onClick={() => {}}>SET GOAL</button>
-			<button style={{ width: 110 }}
-				disabled={isPlaying} onClick={() => {}}>SET POS</button>
+			<button style={{ width: 128, color: action?.action === 'draw' ? 'var(--color-active)' : 'unset' }}
+				onClick={setAction('draw')}><u>D</u>RAW</button>
+			<button style={{ width: 110, color: action?.action === 'set goal' ? 'var(--color-active)' : 'unset' }}
+				disabled={isPlaying} onClick={setAction('set goal')}>SET <u>G</u>OAL</button>
+			<button style={{ width: 110, color: action?.action === 'set pos' ? 'var(--color-active)' : 'unset' }}
+				disabled={isPlaying} onClick={setAction('set pos')}>SET <u>P</u>OS</button>
 			<button style={{ width: 110 }}
 				disabled={isPlaying} onClick={() => initRandomLevel()}>RAND POS</button>
 			<label title='Examine available paths and costs'>Examine
 				<input type='checkbox' checked={examineMode} onChange={e => set('examineMode', e.target.checked)}/></label>
-		
 		</div>
 		<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
 			<button style={{ width: 128, color: isPlaying ? 'var(--color-active)' : 'unset' }}
@@ -86,15 +88,30 @@ export function Player({ pos, shadow }: { pos: Position, shadow?: boolean }) {
 		return new THREE.ShapeGeometry(a);
 	}, [l, w]);
 
-	return <mesh position={[pos.x, pos.y, 0]} geometry={geom}
-		rotation={new THREE.Euler(0, 0, pos.rot / rotNumber * Math.PI * 2 )}>
-		<meshBasicMaterial color={shadow ? 'magenta' : 'cyan'} transparent/>
-	</mesh>;
+	return <>
+		<mesh position={[pos.x, pos.y, 0]} geometry={geom}
+			rotation={new THREE.Euler(0, 0, pos.rot / rotNumber * Math.PI * 2 )}>
+			<meshBasicMaterial color={shadow ? 'magenta' : 'cyan'} transparent/>
+		</mesh>
+	</>;
 }
 
 export default function Game() {
-	const { grid, isGenerating } = useLevelState();
-	const { pathfinder, results, playerPos, targetPos, reset } = useGameState();
+	const { grid, size, isGenerating } = useLevelState();
+	const state = useGameState();
+	const { pathfinder, results, playerPos, targetPos, rotNumber, action: act, set, reset } = state;
+	const action = act?.action, stage = act?.stage;
+
+	const closestNode = ({ x: ax, y: ay }: Coords) => {
+		const [x, y] = [ax, ay].map(a => Math.max(0, Math.min(Math.round(a), size - 1)));
+		return { x, y };
+	};
+
+	const getRotation = (a: Coords, b: Coords) => {
+		const dx = b.x - a.x, dy = b.y - a.y;
+		const rad = Math.atan2(dy, dx);
+		return Math.round((rad / Math.PI / 2 + .5) * rotNumber) % rotNumber;
+	};
 
 	useEffect(() => reset(), [grid, reset]);
 
@@ -120,7 +137,35 @@ export default function Game() {
 	}), [results, playerPos]);
 
 	return <Canvas flat orthographic onContextMenu={e => e.preventDefault()}>
-		<Level/>
+		<Level {...{
+			onClick: e => {
+				if (action?.startsWith('set')) {
+					const which = action === 'set goal' ? 'targetPos' : 'playerPos';
+					if (stage === 0) {
+						set(which, { ...state[which], ...closestNode(e.point) });
+						set('action', { action, stage: 1 });
+					} else {
+						set('action', null);
+					}
+				}
+			},
+			onPointerMove: e => {
+				if (action?.startsWith('set')) {
+					const which = action === 'set goal' ? 'targetPos' : 'playerPos';
+					if (stage === 0) {
+						set(which, { ...state[which], ...closestNode(e.point) });
+					} else {
+						set(which, { ...state[which], rot: getRotation(e.point, state[which]) });
+					}
+				}
+			},
+			onPointerDown: e => {
+
+			},
+			onPointerUp: e => {
+
+			}
+		}}/>
 		<Player pos={playerPos}/>
 		<Player pos={targetPos} shadow={true}/>
 		{paths}

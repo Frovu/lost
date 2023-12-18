@@ -24,7 +24,7 @@ export const arrowShape = (state: GameState) => {
 	return a;
 };
 
-function getrot1tion(x1: number, y1: number, x2: number, y2: number) {
+function getRotation(x1: number, y1: number, x2: number, y2: number) {
 	const { rotNumber } = useGameState.getState();
 	const dx = x1 - x2, dy = y1 - y2;
 	const rad = Math.atan2(dy, dx);
@@ -41,7 +41,7 @@ export default function Examine() {
 
 	const closestNode = ({ x: ax, y: ay }: Coords) => {
 		const [x, y] = [ax, ay].map(a => max(0, min(round(a), size - 1)));
-		return { x, y, rot: getrot1tion(x, y, ax, ay) };
+		return { x, y, rot: getRotation(x, y, ax, ay) };
 	};
 
 	// const graph = useMemo(() => [...Array(size).keys()]
