@@ -80,7 +80,6 @@ export function LevelControls () {
 			{typeOptions.map(o => <option key={o} value={o}>{o}</option>)}	
 		</select></label>
 		{type === 'perlin noise' && <>
-			<div style={{ flexBasis: '100%' }}></div>
 			<label>power=<input style={{ marginLeft: 2, width: 64 }} type='number' min='1' max='64' step='1'
 				value={pow} onChange={e => set('pow', e.target.valueAsNumber)}/></label>
 			<label>multi=<input style={{ marginLeft: 2, width: 64 }} type='number' min='4' max='512' step='4'
@@ -88,5 +87,6 @@ export function LevelControls () {
 			<label>resolution=<input style={{ marginLeft: 2, width: 64 }} type='number' min='1' max='64' step='1'
 				value={resolution} onChange={e => set('resolution', e.target.valueAsNumber)}/></label>
 		</>}
+		<div style={{ height: 1, flexBasis: '100%', background: 'var(--color-border)' }}></div>
 	</div>;
 }

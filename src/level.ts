@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { perlin } from './perlin';
-import { play, useGameState } from './game';
+import { initRandomLevel, useGameState } from './game';
 
 export const typeOptions = ['gradient', 'white noise', 'perlin noise'] as const;
 
@@ -106,5 +106,5 @@ export async function generateLevel(animated=true) {
 	await animate();
 	useLevelState.setState(st => ({ ...st, isGenerating: false }));
 	if (!useGameState.getState().examineMode)
-		play();
+		initRandomLevel();
 }

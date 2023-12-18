@@ -17,15 +17,6 @@ export type NodeBase = Position & {
 	cost?: number
 };
 
-export type PathfindingResult = {
-	params: PathfinderParams,
-	aborted: boolean,
-	path: NodeBase[],
-	nodesVisited: number,
-	timeConsumed: number,
-	at: number,
-};
-
 const defaultState = {
 	robotLength: 1.2,
 	robotWidth: .8,
@@ -53,9 +44,20 @@ export type GameState = typeof defaultState & {
 export interface PathfinderParams {
 	state: GameState,
 	animate: boolean,
+	limit?: number,
 	grid: Uint8ClampedArray,
 	size: number,
 }
+
+export type PathfindingResult = {
+	success?: boolean,
+	params: PathfinderParams,
+	aborted: boolean,
+	path: NodeBase[],
+	nodesVisited: number,
+	timeConsumed: number,
+	at: number,
+};
 
 export interface Pathfinder {
 	stop: () => void,
@@ -82,14 +84,11 @@ export const play = (force=true) => useGameState.setState(state => {
 		return state;
 	state.pathfinder?.stop();
 	const { grid, size } = useLevelState.getState();
-	const { addResult, algorithm } = state;
+	const { addResult, algorithm, playerPos, targetPos } = state;
 	if (!grid) return state;
 	const pathfinder = algorithm === 'A*'
 		? new Astar({ state, grid, size, animate: true })
 		: new DstarLite({ state, grid, size, animate: true });
-	const rot = Math.ceil(state.rotNumber / 4);
-	const playerPos = { x: 0, y: 0, rot };
-	const targetPos = { x: size-1, y: size-1, rot };
 	pathfinder.findPath(playerPos, targetPos)
 		.then(res => !res?.aborted && addResult(res));
 	return { ...state, playerPos, targetPos, pathfinder, isPlaying: true };
@@ -98,7 +97,67 @@ export const play = (force=true) => useGameState.setState(state => {
 export const distance = (a: Position, b: Position) =>
 	Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
 
-export function neighborsFactory(params: PathfinderParams, reverse=false) {
+export const initRandomLevel = async () => {
+	const { grid, size } = useLevelState.getState();
+	const state = useGameState.getState();
+	const { rotNumber } = state;
+	if (!grid) return;
+	console.time('level init');
+
+	const randomPos = (): Position => {
+		const x = Math.floor(Math.random() * size);
+		const y = Math.floor(Math.random() * size);
+		const rot = Math.floor(Math.random() * rotNumber);
+		for (let nx = x - 2; nx < x + 3; ++ nx) {
+			for (let ny = y - 2; ny < y + 3; ++ ny) {
+				if (nx < 0 || nx >= size || ny < 0 || ny >= size)
+					return randomPos();
+				if (grid[ny * size + nx] >= 255)
+					return randomPos();
+			}
+		}
+		return { x, y, rot };
+	};
+
+	for (let i = 0; i < 128; ++i) {
+		const start = randomPos();
+		const goal = randomPos();
+		if (distance(start, goal) < size * .8)
+			continue;
+		i += 16;
+		if (await checkReachable(state, start, goal)) {
+			console.timeEnd('level init');
+			useGameState.setState(st => ({
+				...st, results: [], playerPos: start, targetPos: goal }));
+			return play();
+		}
+	}
+	console.log('too much random retries');
+	console.timeEnd('level init');
+};
+
+export function checkReachable(st: GameState, a: Position, b: Position) {
+	const { grid, size } = useLevelState.getState();
+	if (!grid) return false;
+	const state = { ...st, heuristicMulti: 10 };
+	const forw = new DstarLite({ state, grid, size, animate: false, limit: 1000 });
+	const back = new DstarLite({ state, grid, size, animate: false, limit: 1000 });
+	return new Promise<boolean>(resolve => {
+		const found = (r: PathfindingResult) => {
+			if (!r.aborted && r.success)
+				resolve(true);
+			else
+				resolve(false);
+			forw.stop();
+			back.stop();
+		};
+		forw.findPath(a, b).then(found);
+		back.findPath(b, a).then(found);
+	});
+
+}
+
+export function neighborsFactory(params: PathfinderParams, reverse=false, ignoreWalls=false) {
 	const state = params.state;
 	const { neighborsRadius, rotNumber } = state;
 	const curves: PathCurve[][] = Array(rotNumber).fill(null).map(() => []);
@@ -137,7 +196,7 @@ export function neighborsFactory(params: PathfinderParams, reverse=false) {
 		for (const { x, y, w } of mask) {
 			const ax = x + pos.x, ay = y + pos.y;
 			const cost = grid[ay * size + ax];
-			if (cost == null || cost >= 255)
+			if (!ignoreWalls && (cost == null || cost >= 255))
 				return null;
 			totalCost += (1 + cost * multi) * w;
 		}

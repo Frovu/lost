@@ -10,7 +10,7 @@ function App() {
 		<div style={{ aspectRatio: 1 }}>
 			{examineMode ? <Examine/> : <Game/>}
 		</div>
-		<div style={{ display: 'flex', flexFlow: 'column', gap: 16 }}>
+		<div style={{ display: 'flex', flexFlow: 'column', gap: 8 }}>
 			<LevelControls/>
 			<GameControls/>
 		</div>

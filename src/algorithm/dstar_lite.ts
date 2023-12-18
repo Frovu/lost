@@ -26,10 +26,10 @@ function compare(a: Node, b: Node) {
 	return 1;
 }
 
-function heuristicFoo(pos: Position, target: Position, rotNumber: number) {
+function heuristicFoo(pos: Position, target: Position, rotNumber: number, multi: number) {
 	const dist = Math.abs(target.x - pos.x) + Math.abs(target.y - pos.y);
 	const rotDiff = Math.abs(target.rot - pos.rot) / rotNumber;
-	return dist + rotDiff * 3;
+	return dist * 1.5 * multi + rotDiff * 2;
 }
 
 export default class DstarLite implements Pathfinder {
@@ -40,15 +40,16 @@ export default class DstarLite implements Pathfinder {
 	 
 	constructor(params: PathfinderParams) {
 		const rn = params.state.rotNumber;
+		const multi = params.state.heuristicMulti;
 		this.params = params;
-		this.heuristic = (a: Position, b: Position) => heuristicFoo(a, b, rn);
+		this.heuristic = (a: Position, b: Position) => heuristicFoo(a, b, rn, multi);
 	}
 
 	stop() { this.stopFlag = true; }
 
 	renderPath(start: Node, target: Node) {
 		if (!this.graph) return [];
-		const neighbors = neighborsFactory(this.params);
+		const neighbors = neighborsFactory(this.params, false, true);
 		const rec = (cur: Node, path: Node[]): Node[] => {
 			if (!isFinite(cur.g) || cur === target)
 				return path;
@@ -56,12 +57,16 @@ export default class DstarLite implements Pathfinder {
 			for (const p of neighbors(cur)) {
 				const node = this.graph![p.y][p.x][p.rot];
 				const r = node.g + p.cost;
-				if (!min || minR >= r) {
+				if (!min || minR > r) {
 					node.curve = p.curve;
+					node.cost = p.cost;
 					min = node;
 					minR = r;
 				}
 			}
+			const found = path.find(n => posEqual(n, min));
+			if (found)
+				return path;
 			return rec(min, path.concat({ ...min }));
 		};
 		return rec(start, []);
@@ -69,12 +74,12 @@ export default class DstarLite implements Pathfinder {
 
 	async findPath(startPos: Position, targetPos: Position): Promise<PathfindingResult> {
 		const { params, heuristic } = this;
-		const { size, state } = params;
-		const { rotNumber, heuristicMulti } = state;
+		const { size, state, limit } = params;
+		const { rotNumber } = state;
 
 		const calculateKey = (a: Node) => {
 			const k = Math.min(a.g, a.rhs);
-			a.k1 = k + heuristic(start, a) * heuristicMulti;
+			a.k1 = k + heuristic(start, a);
 			a.k2 = k;
 			return a;
 		};
@@ -110,11 +115,12 @@ export default class DstarLite implements Pathfinder {
 			if (node.visists > 2)
 				continue;
 
-			if (this.stopFlag) {
-				animatePathfinding(null);
+			if (this.stopFlag || totalVisits > (limit ?? 99999)) {
+				if (params.animate)
+					animatePathfinding(null);
 				return {
 					params,
-					aborted: this.stopFlag,
+					aborted: true,
 					path: [],
 					nodesVisited: totalVisits,
 					timeConsumed: 0,
@@ -149,21 +155,28 @@ export default class DstarLite implements Pathfinder {
 				}
 			}
 
-			if (params.animate && totalVisits % useGameState.getState().animationSpeed === 0) {
-				meta.fill(0);
-				for (const { x, y } of queue.toArray()) {
-					const found = graph[y][x].find(n => isFinite(n.g) && n.g === n.rhs);
-					meta[y * size + x] = found ? 2 : 1;
-
+			if (params.animate) {
+				if (totalVisits % useGameState.getState().animationSpeed === 0) {
+					meta.fill(0);
+					for (const { x, y } of queue.toArray()) {
+						const found = graph[y][x].find(n => isFinite(n.g) && n.g === n.rhs);
+						meta[y * size + x] = found ? 2 : 1;
+	
+					}
+					meta[node.y * size + node.x] = 3;
+					await animatePathfinding(meta.slice());
 				}
-				meta[node.y * size + node.x] = 3;
-				await animatePathfinding(meta.slice());
+			} else {
+				if (totalVisits % 500 === 0)
+					await new Promise(res => setTimeout(res, 0));
 			}
 		}
 
-		animatePathfinding(null);
+		if (params.animate)
+			animatePathfinding(null);
 		return {
 			params,
+			success: isFinite(start.g),
 			aborted: this.stopFlag,
 			path: this.renderPath(start, target),
 			nodesVisited: totalVisits,
