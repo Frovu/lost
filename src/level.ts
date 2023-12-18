@@ -1,13 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { perlin } from './perlin';
-import { initRandomLevel, useGameState } from './game';
+import { Coords, initRandomLevel, useGameState } from './game';
 
 export const typeOptions = ['gradient', 'white noise', 'perlin noise'] as const;
 
 const defaultState = {
 	type: 'perlin noise' as typeof typeOptions[number],
 	isGenerating: false,
+	isDrawing: false,
 	useVignette: true,
 	animate: true,
 	resolution: 20,
@@ -15,11 +16,16 @@ const defaultState = {
 	multi: 64,
 	size: 64,
 	overlayGrid: null as null | Uint8ClampedArray,
-	grid: null as null | Uint8ClampedArray
+	originalGrid: null as null | Uint8ClampedArray,
+	grid: null as null | Uint8ClampedArray,
+	obstacles: [] as { x: number, y: number }[][]
 };
 
 export type LevelState = typeof defaultState & {
-	set: <T extends keyof typeof defaultState>(k: T, val: typeof defaultState[T]) => void
+	set: <T extends keyof typeof defaultState>(k: T, val: typeof defaultState[T]) => void,
+	drawObstacle: (pos: Coords) => void,
+	finishDrawing: () => void,
+	// undoObstacle: () => void,
 };
 
 export const animatePathfinding = (grid: Uint8ClampedArray | null) => {
@@ -35,11 +41,28 @@ export const useLevelState = create<LevelState>()(persist((set) => ({
 			generateLevel(false);
 		else if (['type'].includes(k))
 			generateLevel(true);
-	}
+	},
+	drawObstacle: (pos) => set(st => {
+		const obstacles = st.obstacles.slice();
+		if (!st.isDrawing || obstacles.length < 1)
+			obstacles.push([]);
+		const last = obstacles.at(-1)!.slice();
+		if (!last.find(p => p.x === pos.x && p.y === pos.y))
+			last.push(pos);
+		const grid = st.grid?.slice() ?? null;
+		if (grid)
+			grid[pos.y * st.size + pos.x] = 255;
+
+		return { ...st, isDrawing: true, obstacles, grid };
+	}),
+	finishDrawing: () => set(st => {
+		return { ...st, isDrawing: false };
+	})
 }), {
 	name: 'and I become lost',
 	partialize: ({ type, size, animate, pow, multi, resolution, grid, useVignette }) =>
-		({ type, size, animate, pow, multi, resolution, grid, useVignette })
+		({ type, size, animate, pow, multi, resolution, useVignette,
+			grid: grid && Array.from(grid) })
 }));
 
 export async function generateLevel(animated=true) {
@@ -49,7 +72,7 @@ export async function generateLevel(animated=true) {
 	const delay = 1000 / size - 4;
 	const animateEnabled = animated && animateEn;
 
-	const grid = new Uint8ClampedArray(size * size).fill(0);
+	const grid = new Uint8ClampedArray(size * size);
 	const animate = () => {
 		useLevelState.setState(st => ({ ...st, grid: grid.slice() }));
 		return new Promise(res => setTimeout(res, delay)); };
@@ -104,7 +127,7 @@ export async function generateLevel(animated=true) {
 		grid[i] = grid[i] > 200 ? 255 : grid[i];
 	}
 	await animate();
-	useLevelState.setState(st => ({ ...st, isGenerating: false }));
+	useLevelState.setState(st => ({ ...st, originalGrid: grid.slice(), grid, isGenerating: false }));
 	if (!useGameState.getState().examineMode)
 		initRandomLevel();
 }

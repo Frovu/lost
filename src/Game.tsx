@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber';
 import { Level } from './Level';
 import { useLevelState } from './level';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import { Coords, Position, actions, algoOptions, initRandomLevel, play, useGameState } from './game';
 import { drawCurveSegment } from './curves';
@@ -97,10 +97,11 @@ export function Player({ pos, shadow }: { pos: Position, shadow?: boolean }) {
 }
 
 export default function Game() {
-	const { grid, size, isGenerating } = useLevelState();
+	const { grid, size, isGenerating, drawObstacle, finishDrawing } = useLevelState();
 	const state = useGameState();
 	const { pathfinder, results, playerPos, targetPos, rotNumber, action: act, set, reset } = state;
 	const action = act?.action, stage = act?.stage;
+	const [isDrawing, setDrawing] = useState(false);
 
 	const closestNode = ({ x: ax, y: ay }: Coords) => {
 		const [x, y] = [ax, ay].map(a => Math.max(0, Math.min(Math.round(a), size - 1)));
@@ -157,13 +158,21 @@ export default function Game() {
 					} else {
 						set(which, { ...state[which], rot: getRotation(e.point, state[which]) });
 					}
+				} else if (action === 'draw') {
+					if (isDrawing)
+						drawObstacle(closestNode(e.point));
 				}
 			},
 			onPointerDown: e => {
+				if (action === 'draw') {
+					setDrawing(true);
+					drawObstacle(closestNode(e.point));
+				}
 
 			},
-			onPointerUp: e => {
-
+			onPointerUp: () => {
+				setDrawing(false);
+				finishDrawing();
 			}
 		}}/>
 		<Player pos={playerPos}/>
