@@ -3,12 +3,12 @@ import { Level } from './Level';
 import { useLevelState } from './level';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { Coords, Position, actions, algoOptions, closestNode, findPath, initRandomLevel, play, useGameState } from './game';
+import { Coords, Position, actions, closestNode, findPath, initRandomLevel, useGameState } from './game';
 import { drawCurveSegment } from './curves';
 
 export function GameControls() {
 	const { isPlaying, isPathfinding, costMulti, heuristicMulti, animationSpeed, robotLength, robotWidth, action,
-		algorithm, rotNumber, examineMode, turningRadius, results, set } = useGameState();
+		rotNumber, examineMode, turningRadius, results, set } = useGameState();
 
 	const resultsWithCost = useMemo(() => results.map(res => {
 		const path = res.path;

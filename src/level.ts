@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { perlin } from './perlin';
-import { Coords, initRandomLevel, useGameState } from './game';
+import { Coords, useGameState } from './game';
 
 export const typeOptions = ['gradient', 'white noise', 'perlin noise'] as const;
 
@@ -141,6 +141,6 @@ export async function generateLevel(animated=true) {
 	}
 	await animate();
 	useLevelState.setState(st => ({ ...st, originalGrid: grid.slice(), grid, isGenerating: false }));
-	if (!useGameState.getState().examineMode)
-		initRandomLevel();
+	// if (!useGameState.getState().examineMode)
+	// 	initRandomLevel();
 }

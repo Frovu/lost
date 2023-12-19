@@ -125,8 +125,10 @@ export const initRandomLevel = async () => {
 	console.time('level init');
 
 	const randomPos = (): Position => {
-		const x = Math.floor(Math.random() * size);
-		const y = Math.floor(Math.random() * size);
+		const ux = Math.random() * size;
+		const uy = Math.random() * size;
+		const x = Math.floor(ux);
+		const y = Math.floor(uy);
 		const rot = Math.floor(Math.random() * rotNumber);
 		for (let nx = x - 2; nx < x + 3; ++ nx) {
 			for (let ny = y - 2; ny < y + 3; ++ ny) {
@@ -136,7 +138,7 @@ export const initRandomLevel = async () => {
 					return randomPos();
 			}
 		}
-		return { x, y, rot };
+		return { x: ux, y: uy, rot };
 	};
 
 	for (let i = 0; i < 128; ++i) {
@@ -176,13 +178,29 @@ export function checkReachable(st: GameState, a: Position, b: Position) {
 	});
 }
 
-export function neighborsUnaligned(pos: Position, params: PathfinderParams) { 
-	const { state, grid, size } = params;
-	const { neighborsRadius, rotNumber, costMulti: multi } = state;
+export function applyMask(pos: Position, curve: PathCurve, mask: ReturnType<typeof renderCurveGridMask>,
+	params: PathfinderParams, noWalls=false, reverse=false) {
+	const { grid, size, state: { costMulti } } = params;
+	let cost = 0;
+	for (const { x, y, w } of mask) {
+		const c = grid[(y + pos.y) * size + x + pos.x];
+		if (!noWalls && (c == null || c >= 255))
+			return null;
+		cost += (1 + c * costMulti / 256) * w;
+	}
+	cost *= reverse !== curve.reverse ? REVERSE_MULTIPLIER : 1;
+	return { curve, cost };
+}
+
+export function neighborsUnaligned(pos: Position, params: PathfinderParams, overrideRadius?: number) { 
+	const { state, size } = params;
+	const { neighborsRadius, rotNumber } = state;
+	const rrr = overrideRadius ?? neighborsRadius;
 	const x0 = Math.round(pos.x), y0 = Math.round(pos.y);
+	const pos0 = { x: x0, y: y0, rot: pos.rot };
 	const neighbors: Required<NodeBase>[] = [];
-	for (let x = x0 - neighborsRadius; x < x0 + neighborsRadius + 1; ++x) {
-		for (let y = y0 - neighborsRadius; y < y0 + neighborsRadius + 1; ++y) {
+	for (let x = x0 - rrr; x < x0 + rrr + 1; ++x) {
+		for (let y = y0 - rrr; y < y0 + rrr + 1; ++y) {
 			if (x === x0 && y === y0)
 				continue;
 			if (x < 0 || x >= size)
@@ -191,18 +209,9 @@ export function neighborsUnaligned(pos: Position, params: PathfinderParams) {
 				continue;
 			for (let rot = 0; rot < rotNumber; ++rot) {
 				for (const curve of computeCurves(pos, { x, y, rot }, state)) {
-					const nei = (() => {
-						let cost = 0;
-						for (const m of renderCurveGridMask(curve, state)) {
-							const c = grid[(m.y + y0) * size + m.x + x0];
-							if (c == null || c >= 255)
-								return null;
-							cost += (1 + c * multi) * m.w;
-						}
-						cost *= curve.reverse ? REVERSE_MULTIPLIER : 1;
-						return { x, y, rot, curve, cost };
-					})();
-					if (nei) neighbors.push(nei);
+					const res = applyMask(pos0, curve, renderCurveGridMask(curve, state), params);
+					if (res)
+						neighbors.push({ x, y, rot, ...res });
 				}
 			}
 		}
@@ -211,7 +220,7 @@ export function neighborsUnaligned(pos: Position, params: PathfinderParams) {
 }
 
 export function neighborsFactory(params: PathfinderParams, reverse=false, ignoreWalls=false) {
-	const state = params.state;
+	const { state, size } = params;
 	const { neighborsRadius, rotNumber } = state;
 	const curves: PathCurve[][] = Array(rotNumber).fill(null).map(() => []);
 
@@ -231,8 +240,6 @@ export function neighborsFactory(params: PathfinderParams, reverse=false, ignore
 	const rendered = curves.map(forRot => forRot.map(c => 
 		({ curve: c, mask: renderCurveGridMask(c, state) })));
 
-	const { grid, size } = params;
-
 	return (pos: Position) => rendered[pos.rot].map(({ curve, mask }) => {
 		const tx = curve.target.x + pos.x;
 		const ty = curve.target.y + pos.y;
@@ -243,19 +250,8 @@ export function neighborsFactory(params: PathfinderParams, reverse=false, ignore
 		if (ty < 0 || ty >= size)
 			return null;
 
-		const multi = state.costMulti / 256;
-		let totalCost = 0;
-
-		for (const { x, y, w } of mask) {
-			const ax = x + pos.x, ay = y + pos.y;
-			const cost = grid[ay * size + ax] ?? 255;
-			if (!ignoreWalls && (cost == null || cost >= 255))
-				return null;
-			totalCost += (1 + cost * multi) * w;
-		}
-		totalCost *= reverse !== curve.reverse ? REVERSE_MULTIPLIER : 1;
-
-		return { x: tx, y: ty, rot: trot, curve, cost: totalCost };
+		const res = applyMask(pos, curve, mask, params, ignoreWalls, reverse);
+		return res && { x: tx, y: ty, rot: trot, ...res };
 	}).filter((a): a is Position & {
 		curve: PathCurve,
 		cost: number
