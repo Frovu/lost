@@ -88,6 +88,8 @@ export function renderCurveGridMask({ line, a0, a1, start, target }: PathCurve, 
 
 	// this whole function is cursed, don't even try to comprehend
 
+	const sdx = Math.round(start.x) - start.x;
+	const sdy = Math.round(start.y) - start.y;
 	const outerR = Math.sqrt((r + w / 2) ** 2 + (l / 2) ** 2);
 	const innerR = r - w / 2;
 	const phi = Math.atan2(line.y2 - line.y1, line.x2 - line.x1);
@@ -97,8 +99,9 @@ export function renderCurveGridMask({ line, a0, a1, start, target }: PathCurve, 
 	const maxy = max(line.y1, line.y2);
 
 	let weights = [];
-	for (let x = floor(minx) - ceil(w); x < ceil(maxx) + ceil(w); ++x) {
-		for (let y = floor(miny) - ceil(w); y < ceil(maxy) + ceil(w); ++y) {
+	for (let ix = floor(minx) - ceil(w); ix < ceil(maxx) + ceil(w); ++ix) {
+		for (let iy = floor(miny) - ceil(w); iy < ceil(maxy) + ceil(w); ++iy) {
+			const x = ix + sdx, y = iy + sdy;
 			const dx = x - line.x1, dy = y - line.y1;
 			const cellPhi = Math.atan2(dy, dx);
 			const cellPhiE = Math.atan2(y - line.y2, x - line.x2);
@@ -126,7 +129,7 @@ export function renderCurveGridMask({ line, a0, a1, start, target }: PathCurve, 
 			if (Math.abs(ade) < PI / 2)
 				wgt = hypE >= 1 ? 0 : Math.min(1, w, wgt / hypE);
 			if (wgt > 0)
-				weights.push({ x, y, w: Math.min(1, .1 + wgt) });
+				weights.push({ x: ix, y: iy, w: Math.min(1, .1 + wgt) });
 		}
 	}
 
@@ -138,8 +141,9 @@ export function renderCurveGridMask({ line, a0, a1, start, target }: PathCurve, 
 		const x0 = round(a.x), y0 = round(a.y), rrr = ceil(r) + 1;
 		if (ad <= 0) continue;
 
-		for (let x = x0 - rrr; x < x0 + rrr + 1; ++x) {
-			for (let y = y0 - rrr; y < y0 + rrr + 1; ++y) {
+		for (let ix = x0 - rrr; ix < x0 + rrr + 1; ++ix) {
+			for (let iy = y0 - rrr; iy < y0 + rrr + 1; ++iy) {
+				const x = ix + sdx, y = iy + sdy;
 				const dy = y - a.y, dx = x - a.x;
 				const cph = Math.atan2(dy, dx);
 				const pd = (2*PI + (cph - ap0) * a.side) % (2*PI);
@@ -165,12 +169,13 @@ export function renderCurveGridMask({ line, a0, a1, start, target }: PathCurve, 
 				if (found)
 					found.w = (found.w + wgt) / 2;
 				else
-					weights.push({ x, y, w: wgt });
+					weights.push({ x: ix, y: iy, w: wgt });
 			}
 		}
 	}
 
-	const dx = target.x - start.x, dy = target.y - start.y;
+	const dx = Math.round(target.x - start.x);
+	const dy = Math.round(target.y - start.y);
 	weights = weights.filter(a => a.x !== 0 || a.y !== 0);
 	weights = weights.filter(a => a.x !== dx || a.y !== dy);
 	weights.push({ x: 0, y: 0, w: Math.min(1, w / 2) });

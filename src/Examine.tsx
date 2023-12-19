@@ -128,6 +128,7 @@ export default function Examine() {
 		}
 
 		const weights = renderCurveGridMask(curve, state);
+
 		let totalCost = 0;
 		for (const { x, y, w: wg } of weights) {
 			const tx = x + start.x;
@@ -206,10 +207,10 @@ export default function Examine() {
 			<meshBasicMaterial color='cyan'/>
 		</mesh></>}
 		{visuals?.weights && grid && visuals.weights.map(({ x, y, w }) => {
-			const tx = x + start.x;
-			const ty = y + start.y;
+			const tx = x + Math.round(start.x);
+			const ty = y + Math.round(start.y);
 			const bad = tx < 0 || tx >= size || ty < 0 || ty >= size || grid[ty * size + tx] >= 255;
-			return <mesh position={[start.x + x, start.y + y, 0]}>
+			return <mesh position={[tx, ty, 0]}>
 				<boxGeometry args={[1, 1, 0]}/>
 				<meshBasicMaterial color={bad ? 'red' : 'rgb(0,255,0)'} opacity={bad ? .7 : w / 2} transparent/>
 			</mesh>;})}
