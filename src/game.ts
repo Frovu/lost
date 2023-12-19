@@ -35,6 +35,7 @@ const defaultState = {
 	heuristicMulti: 1,
 	costMulti: 4,
 	pathfinder: null as null | Pathfinder,
+	path: null as null | NodeBase[],
 	results: [] as PathfindingResult[]
 };
 
@@ -86,25 +87,34 @@ export const useGameState = create<GameState>()(persist((set) => ({
 		({ playerPos, targetPos, algorithm, turningRadius, rotNumber, robotLength, robotWidth, examineMode, heuristicMulti, costMulti })
 }));
 
-export const play = () => useGameState.setState(state => {
-	if (state.isPlaying) {
-		state.pathfinder?.stop();
-		return { ...state, isPlaying: false };
-	}
+export const playRound = () => useGameState.setState(state => {
+	const { isPathfinding, path } = state;
+	const nextPos = path?.[0];
+	if (isPathfinding || !path || !nextPos) return state;
 	
-	return { ...state, isPlaying: true };
+	return {
+		results: [],
+		playerPos: nextPos,
+		path: path.slice(1)
+	};
 });
 
 export const findPath = (force=true) => useGameState.setState(state => {
-	const { addResult, playerPos, targetPos } = state;
+	const { addResult, set, playerPos, targetPos } = state;
 	const { grid, size } = useLevelState.getState();
 	if (!grid || (state.isPathfinding && !force))
 		return state;
 	state.pathfinder?.stop();
 
 	const pathfinder = new DstarLite({ state, grid, size, animate: true });
-	pathfinder.findPath(playerPos, targetPos)
-		.then(res => !res?.aborted && addResult(res));
+	pathfinder.findPath(playerPos, targetPos).then(res => {
+		if (!res?.aborted) {
+			addResult(res);
+			set('path', res.path);
+		} else {
+			set('path', null);
+		}
+	});
 
 	return { ...state, playerPos, targetPos, pathfinder, isPathfinding: true };
 });

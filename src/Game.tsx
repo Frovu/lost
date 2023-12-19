@@ -1,10 +1,12 @@
 import { Canvas } from '@react-three/fiber';
 import { Level } from './Level';
 import { useLevelState } from './level';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
-import { Coords, Position, actions, closestNode, findPath, initRandomLevel, useGameState } from './game';
+import { Coords, Position, actions, closestNode, distance, findPath, initRandomLevel, playRound, posEqual, useGameState } from './game';
 import { drawCurveSegment } from './curves';
+
+const ANIM_STEPS = 32;
 
 export function GameControls() {
 	const { isPlaying, isPathfinding, costMulti, heuristicMulti, animationSpeed, robotLength, robotWidth, action,
@@ -98,11 +100,20 @@ export function Player({ pos, shadow }: { pos: Position, shadow?: boolean }) {
 	</>;
 }
 
+const getRotation = (a: Coords, b: Coords) => {
+	const { rotNumber } = useGameState.getState();
+	const dx = b.x - a.x, dy = b.y - a.y;
+	const rad = Math.atan2(dy, dx);
+	return Math.round((rad / Math.PI / 2 + .5) * rotNumber) % rotNumber;
+};
+
 export default function Game() {
 	const { grid, size, isGenerating, drawObstacle, startDrawing, finishDrawing, undoObstacle } = useLevelState();
 	const state = useGameState();
-	const { pathfinder, isPlaying, results, playerPos, targetPos, rotNumber, action: act, set, reset } = state;
+	const { pathfinder, path: curPath, isPlaying, isPathfinding, rotNumber, animationSpeed,
+		results, playerPos, targetPos, action: act, set, reset } = state;
 	const action = act?.action, stage = act?.stage;
+	const [animationStep, setAnimationStep] = useState(0);
 
 	useEffect(() => {
 		const listener = (e: KeyboardEvent) => {
@@ -124,11 +135,9 @@ export default function Game() {
 		return () => document.body.removeEventListener('keydown', listener);
 	}, [isPlaying, set, undoObstacle]);
 
-	const getRotation = (a: Coords, b: Coords) => {
-		const dx = b.x - a.x, dy = b.y - a.y;
-		const rad = Math.atan2(dy, dx);
-		return Math.round((rad / Math.PI / 2 + .5) * rotNumber) % rotNumber;
-	};
+	useEffect(() => { if (!isPlaying) setAnimationStep(0); }, [isPlaying]);
+
+	useEffect(() => { if (posEqual(playerPos, targetPos)) set('isPlaying', false); }, [playerPos, set, targetPos]);
 
 	useEffect(() => reset(), [grid, reset]);
 
@@ -137,71 +146,108 @@ export default function Game() {
 			findPath(false);
 	}, [grid, isGenerating, pathfinder]);
 
-	useEffect(() => {
-		if (isPlaying && action && action !== 'draw')
-			set('action', null);
-		const interv = () => {
+	const [animDist, animPos, pathGeom] = useMemo(() => {
+		const curve = curPath?.[0]?.curve;
+		if (!curPath || !curve || posEqual(playerPos, targetPos) || animationStep >= ANIM_STEPS) 
+			return [null, null, null];
+		const first = new THREE.Path();
+		drawCurveSegment(first, curve, state);
+		const points = first.getSpacedPoints(ANIM_STEPS);
+		const sliced = points.slice(animationStep);
+		const dx = sliced[1].x - sliced[0].x;
+		const dy = sliced[1].y - sliced[0].y;
+		const dist = dx + dy;
+		const rot = (Math.atan2(dy, dx) + (curve.reverse ? Math.PI : 0))
+			/ Math.PI / 2 * rotNumber;
+		const pos = {
+			x: sliced[0].x + playerPos.x,
+			y: sliced[0].y + playerPos.y,
+			rot };
+		const p = new THREE.Path().setFromPoints(sliced.slice(1));
+		for (const { curve: c } of curPath.slice(1))
+			c && drawCurveSegment(p, c, state);
+		const geom = new THREE.BufferGeometry().setFromPoints(p.getPoints(8));
+		return [dist, pos, geom];
+	}, [curPath, playerPos, targetPos, state, animationStep, rotNumber]);
 
-		};
-	}, [isPlaying]);
+	useEffect(() => {
+		if (!isPlaying || isPathfinding)
+			return;
+		if (action && action !== 'draw')
+			set('action', null);
+		if (animationStep >= ANIM_STEPS) {
+			playRound();
+			setAnimationStep(0);
+		} else {
+			console.log(animDist, Math.max(10, (animDist ?? .1) * 2000 / animationSpeed))
+			const interv = setTimeout(() => {
+				setAnimationStep(s => s + 1);
+			}, Math.max(10, (animDist ?? 1) * 1000 / animationSpeed));
+			return () => clearTimeout(interv);
+		}
+	}, [action, animationStep, isPathfinding, isPlaying, animDist, set, animationSpeed]);
 
 	const paths = useMemo(() => results.map(({ path, at, params }, i) => {
 		const p = new THREE.Path();
-		for (const { curve } of path) {
+		for (const { curve } of path)
 			if (curve)
 				drawCurveSegment(p, curve, params.state);
-		}
-
 		const primary = i + 1 === results.length;
 		const color = primary ? 'cyan' : 'red';
 		const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: primary ? 1 : .5 });
-		const geom = new THREE.BufferGeometry().setFromPoints(p.getPoints(32));
+		const geom = new THREE.BufferGeometry().setFromPoints(p.getPoints(8));
 		const start = playerPos; // FIXME
 		// @ts-ignore
 		return <line key={at} position={[start?.x, start?.y, 0]} geometry={geom} material={mat}/>;
 	}), [results, playerPos]);
 
+	const level = useMemo(() => <Level {...{
+		onClick: e => {
+			if (action?.startsWith('set')) {
+				const which = action === 'set goal' ? 'targetPos' : 'playerPos';
+				if (stage === 0) {
+					set(which, { ...state[which], x: e.point.x, y: e.point.y });
+					set('action', { action, stage: 1 });
+				} else {
+					set('action', null);
+					findPath(false);
+				}
+			}
+		},
+		onPointerMove: e => {
+			if (action?.startsWith('set')) {
+				const which = action === 'set goal' ? 'targetPos' : 'playerPos';
+				if (stage === 0) {
+					set(which, { ...state[which], x: e.point.x, y: e.point.y });
+				} else {
+					set(which, { ...state[which], rot: getRotation(e.point, state[which]) });
+				}
+			} else if (action === 'draw') {
+				drawObstacle(closestNode(e.point, size));
+			}
+		},
+		onPointerDown: e => {
+			if (action === 'draw') {
+				startDrawing();
+				drawObstacle(closestNode(e.point, size));
+			}
+		},
+		onPointerUp: () => {
+			finishDrawing();
+		},
+		onPointerLeave: () => {
+			finishDrawing();
+		},
+	}}/>, [action, drawObstacle, finishDrawing, set, size, stage, startDrawing, state]);
+
 	return <Canvas flat orthographic onContextMenu={e => e.preventDefault()}>
-		<Level {...{
-			onClick: e => {
-				if (action?.startsWith('set')) {
-					const which = action === 'set goal' ? 'targetPos' : 'playerPos';
-					if (stage === 0) {
-						set(which, { ...state[which], x: e.point.x, y: e.point.y });
-						set('action', { action, stage: 1 });
-					} else {
-						set('action', null);
-						findPath(false);
-					}
-				}
-			},
-			onPointerMove: e => {
-				if (action?.startsWith('set')) {
-					const which = action === 'set goal' ? 'targetPos' : 'playerPos';
-					if (stage === 0) {
-						set(which, { ...state[which], x: e.point.x, y: e.point.y });
-					} else {
-						set(which, { ...state[which], rot: getRotation(e.point, state[which]) });
-					}
-				} else if (action === 'draw') {
-					drawObstacle(closestNode(e.point, size));
-				}
-			},
-			onPointerDown: e => {
-				if (action === 'draw') {
-					startDrawing();
-					drawObstacle(closestNode(e.point, size));
-				}
-			},
-			onPointerUp: () => {
-				finishDrawing();
-			},
-			onPointerLeave: () => {
-				finishDrawing();
-			},
-		}}/>
-		<Player pos={playerPos}/>
+		{level}
 		<Player pos={targetPos} shadow={true}/>
-		{paths}
+		<Player pos={animPos ?? playerPos}/>
+		{!isPlaying && paths}
+		{/* @ts-ignore */}
+		{isPlaying && pathGeom && <line position={[playerPos.x, playerPos.y, 0]} geometry={pathGeom}>
+			<lineBasicMaterial color='cyan' transparent/>
+		</line> }
 	</Canvas>;
 }

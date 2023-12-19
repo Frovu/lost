@@ -4,7 +4,7 @@ import { useGameState } from './game';
 import Examine from './Examine';
 
 function App() {
-	const { examineMode } = useGameState();
+	const examineMode = useGameState(st => st.examineMode);
 
 	return <div className='App'>
 		<div style={{ aspectRatio: 1 }}>
