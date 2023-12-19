@@ -3,7 +3,7 @@ import { Level } from './Level';
 import { useLevelState } from './level';
 import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
-import { Coords, Position, actions, closestNode, distance, findPath, initRandomLevel, playRound, posEqual, useGameState } from './game';
+import { Coords, Position, actions, closestNode, findPath, initRandomLevel, playRound, posEqual, useGameState } from './game';
 import { drawCurveSegment } from './curves';
 
 const ANIM_STEPS = 32;
@@ -156,7 +156,7 @@ export default function Game() {
 		const sliced = points.slice(animationStep);
 		const dx = sliced[1].x - sliced[0].x;
 		const dy = sliced[1].y - sliced[0].y;
-		const dist = dx + dy;
+		const dist = Math.sqrt(dx**2 + dy**2);
 		const rot = (Math.atan2(dy, dx) + (curve.reverse ? Math.PI : 0))
 			/ Math.PI / 2 * rotNumber;
 		const pos = {
@@ -179,7 +179,6 @@ export default function Game() {
 			playRound();
 			setAnimationStep(0);
 		} else {
-			console.log(animDist, Math.max(10, (animDist ?? .1) * 2000 / animationSpeed))
 			const interv = setTimeout(() => {
 				setAnimationStep(s => s + 1);
 			}, Math.max(10, (animDist ?? 1) * 1000 / animationSpeed));

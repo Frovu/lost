@@ -120,13 +120,19 @@ export default class DstarLite implements Pathfinder {
 				.map(x => [...Array(rotNumber).keys()]
 					.map(rot => ({ x, y, rot, ...nodeDefaults }))));
 
-		const unaligned = targetPos.x % 1 !== 0 || targetPos.y % 1 !== 0;
-		const neighbors0 = unaligned && neighborsUnaligned(targetPos, params);
-		const target0 = neighbors0 && neighbors0.sort((a, b) => a.cost - b.cost)[0];
-		const strt = closestNode(startPos, size);
-		const targ = target0 || closestNode(targetPos, size);
-		const target = graph[targ.y][targ.x][target0 ? target0.rot : targetPos.rot];
-		const start  = graph[strt.y][strt.x][startPos.rot];
+		const [start, target] = [startPos, targetPos].map((pos, i) => {
+			if (pos.x % 1 === 0 && pos.y % 1 === 0)
+				return graph[pos.y][pos.x][pos.rot];
+			const neighbors = neighborsUnaligned(pos, params);
+			const opposite = i === 0 ? targetPos : startPos;
+			const guess = neighbors.sort((a, b) => {
+				const ra = a.cost + heuristic(a, opposite);
+				const rb = b.cost + heuristic(b, opposite);
+				return ra - rb;
+			})[0];
+			const p = guess ?? closestNode(pos, size);
+			return graph[p.y][p.x][p.rot];
+		});
 		
 		target.rhs = 0;
 		let totalVisits = 0;
