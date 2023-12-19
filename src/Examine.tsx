@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber';
 import { useMemo, useState } from 'react';
 import { Level } from './Level';
-import { Coords, GameState, Position, neighborsFactory, posEqual, useGameState } from './game';
+import { Coords, GameState, Position, neighborsUnaligned, posEqual, useGameState } from './game';
 import { useLevelState } from './level';
 
 import * as THREE from 'three';
@@ -36,7 +36,7 @@ export default function Examine() {
 	const { rotNumber,  } = state;
 	const { size, grid } = useLevelState();
 	const [target, setTarget] = useState<Position | null>(null);
-	const [start, setStart] = useState<Position>({ x: Math.round(size / 2), y: Math.round(size / 2), rot: 0 });
+	const [start, setStart] = useState<Position>({ x: Math.round(size / 2), y: Math.round(size / 2) + .45, rot: 0 });
 	start.rot %= state.rotNumber;
 
 	const closestNode = ({ x: ax, y: ay }: Coords) => {
@@ -52,8 +52,7 @@ export default function Examine() {
 
 	const allPaths = useMemo(() => {
 		if (!start || !grid) return null;
-		const fact = neighborsFactory({ state, grid, size, animate: true });
-		return fact(start);
+		return neighborsUnaligned(start, { state, grid, size, animate: true });
 	}, [start, grid, state, size]);
 
 	const allCurves = useMemo(() => allPaths?.map(({ curve }) => drawCurve(curve, state)), [allPaths, state]);

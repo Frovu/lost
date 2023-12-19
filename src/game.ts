@@ -6,6 +6,7 @@ import DstarLite from './algorithm/dstar_lite';
 
 export const algoOptions = ['A*', 'D* lite'] as const;
 export const actions = ['draw', 'set goal', 'set pos'] as const;
+export const REVERSE_MULTIPLIER = 4;
 
 export type Coords = { x: number, y: number };
 export type Position = { x: number, y: number, rot: number };
@@ -21,7 +22,7 @@ const defaultState = {
 	robotLength: 1.2,
 	robotWidth: .8,
 	playerPos: { x: 1, y: 1, rot: 1 },
-	targetPos: { x: 2, y: 2, rot: 1 },
+	targetPos: { x: 10, y: 10, rot: 1 },
 	algorithm: 'D* lite' as typeof algoOptions[number],
 	turningRadius: 1,
 	neighborsRadius: 2,
@@ -81,8 +82,8 @@ export const useGameState = create<GameState>()(persist((set) => ({
 		return { ...st, results: [], isPlaying: false, isPathfinding: false }; }),
 }), {
 	name: 'you lost',
-	partialize: ({ algorithm, turningRadius, rotNumber, robotLength, robotWidth, examineMode , heuristicMulti, costMulti }) =>
-		({ algorithm, turningRadius, rotNumber, robotLength, robotWidth, examineMode, heuristicMulti, costMulti })
+	partialize: ({ playerPos, targetPos, algorithm, turningRadius, rotNumber, robotLength, robotWidth, examineMode , heuristicMulti, costMulti }) =>
+		({ playerPos, targetPos, algorithm, turningRadius, rotNumber, robotLength, robotWidth, examineMode, heuristicMulti, costMulti })
 }));
 
 export const play = () => useGameState.setState(state => {
@@ -107,6 +108,11 @@ export const findPath = (force=true) => useGameState.setState(state => {
 
 	return { ...state, playerPos, targetPos, pathfinder, isPathfinding: true };
 });
+
+export const closestNode = ({ x: ax, y: ay }: Coords, size: number) => {
+	const [x, y] = [ax, ay].map(a => Math.max(0, Math.min(Math.round(a), size - 1)));
+	return { x, y };
+};
 
 export const distance = (a: Position, b: Position) =>
 	Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
@@ -136,15 +142,15 @@ export const initRandomLevel = async () => {
 	for (let i = 0; i < 128; ++i) {
 		const start = randomPos();
 		const goal = randomPos();
-		if (distance(start, goal) < size * .8)
+		if (distance(start, goal) < (size - 6) * .8)
 			continue;
 		i += 16;
-		if (await checkReachable(state, start, goal)) {
-			console.timeEnd('level init');
-			useGameState.setState(st => ({
-				...st, results: [], playerPos: start, targetPos: goal }));
-			return findPath();
-		}
+		// if (await checkReachable(state, start, goal)) {
+		console.timeEnd('level init');
+		useGameState.setState(st => ({
+			...st, results: [], playerPos: start, targetPos: goal }));
+		return findPath();
+		// }
 	}
 	console.log('too much random retries');
 	console.timeEnd('level init');
@@ -154,8 +160,8 @@ export function checkReachable(st: GameState, a: Position, b: Position) {
 	const { grid, size } = useLevelState.getState();
 	if (!grid) return false;
 	const state = { ...st, heuristicMulti: 10 };
-	const forw = new DstarLite({ state, grid, size, animate: false, limit: 1000 });
-	const back = new DstarLite({ state, grid, size, animate: false, limit: 1000 });
+	const forw = new DstarLite({ state, grid, size, animate: false, limit: size * 10 });
+	const back = new DstarLite({ state, grid, size, animate: false, limit: size * 10 });
 	return new Promise<boolean>(resolve => {
 		const found = (r: PathfindingResult) => {
 			if (!r.aborted && r.success)
@@ -168,7 +174,40 @@ export function checkReachable(st: GameState, a: Position, b: Position) {
 		forw.findPath(a, b).then(found);
 		back.findPath(b, a).then(found);
 	});
+}
 
+export function neighborsUnaligned(pos: Position, params: PathfinderParams) { 
+	const { state, grid, size } = params;
+	const { neighborsRadius, rotNumber, costMulti: multi } = state;
+	const x0 = Math.round(pos.x), y0 = Math.round(pos.y);
+	const neighbors: Required<NodeBase>[] = [];
+	for (let x = x0 - neighborsRadius; x < x0 + neighborsRadius + 1; ++x) {
+		for (let y = y0 - neighborsRadius; y < y0 + neighborsRadius + 1; ++y) {
+			if (x === x0 && y === y0)
+				continue;
+			if (x < 0 || x >= size)
+				continue;
+			if (y < 0 || y >= size)
+				continue;
+			for (let rot = 0; rot < rotNumber; ++rot) {
+				for (const curve of computeCurves(pos, { x, y, rot }, state)) {
+					const nei = (() => {
+						let cost = 0;
+						for (const m of renderCurveGridMask(curve, state)) {
+							const c = grid[(m.y + y0) * size + m.x + x0];
+							if (c == null || c >= 255)
+								return null;
+							cost += (1 + c * multi) * m.w;
+						}
+						cost *= curve.reverse ? REVERSE_MULTIPLIER : 1;
+						return { x, y, rot, curve, cost };
+					})();
+					if (nei) neighbors.push(nei);
+				}
+			}
+		}
+	}
+	return neighbors;
 }
 
 export function neighborsFactory(params: PathfinderParams, reverse=false, ignoreWalls=false) {
@@ -209,12 +248,12 @@ export function neighborsFactory(params: PathfinderParams, reverse=false, ignore
 
 		for (const { x, y, w } of mask) {
 			const ax = x + pos.x, ay = y + pos.y;
-			const cost = grid[ay * size + ax];
+			const cost = grid[ay * size + ax] ?? 255;
 			if (!ignoreWalls && (cost == null || cost >= 255))
 				return null;
 			totalCost += (1 + cost * multi) * w;
 		}
-		totalCost *= reverse !== curve.reverse ? 4 : 1;
+		totalCost *= reverse !== curve.reverse ? REVERSE_MULTIPLIER : 1;
 
 		return { x: tx, y: ty, rot: trot, curve, cost: totalCost };
 	}).filter((a): a is Position & {

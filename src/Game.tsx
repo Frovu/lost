@@ -3,7 +3,7 @@ import { Level } from './Level';
 import { useLevelState } from './level';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { Coords, Position, actions, algoOptions, findPath, initRandomLevel, play, useGameState } from './game';
+import { Coords, Position, actions, algoOptions, closestNode, findPath, initRandomLevel, play, useGameState } from './game';
 import { drawCurveSegment } from './curves';
 
 export function GameControls() {
@@ -124,11 +124,6 @@ export default function Game() {
 		return () => document.body.removeEventListener('keydown', listener);
 	}, [isPlaying, set, undoObstacle]);
 
-	const closestNode = ({ x: ax, y: ay }: Coords) => {
-		const [x, y] = [ax, ay].map(a => Math.max(0, Math.min(Math.round(a), size - 1)));
-		return { x, y };
-	};
-
 	const getRotation = (a: Coords, b: Coords) => {
 		const dx = b.x - a.x, dy = b.y - a.y;
 		const rad = Math.atan2(dy, dx);
@@ -139,7 +134,7 @@ export default function Game() {
 
 	useEffect(() => {
 		if (grid && !pathfinder && !isGenerating)
-			initRandomLevel();
+			findPath(false);
 	}, [grid, isGenerating, pathfinder]);
 
 	useEffect(() => {
@@ -172,7 +167,7 @@ export default function Game() {
 				if (action?.startsWith('set')) {
 					const which = action === 'set goal' ? 'targetPos' : 'playerPos';
 					if (stage === 0) {
-						set(which, { ...state[which], ...closestNode(e.point) });
+						set(which, { ...state[which], x: e.point.x, y: e.point.y });
 						set('action', { action, stage: 1 });
 					} else {
 						set('action', null);
@@ -184,18 +179,18 @@ export default function Game() {
 				if (action?.startsWith('set')) {
 					const which = action === 'set goal' ? 'targetPos' : 'playerPos';
 					if (stage === 0) {
-						set(which, { ...state[which], ...closestNode(e.point) });
+						set(which, { ...state[which], x: e.point.x, y: e.point.y });
 					} else {
 						set(which, { ...state[which], rot: getRotation(e.point, state[which]) });
 					}
 				} else if (action === 'draw') {
-					drawObstacle(closestNode(e.point));
+					drawObstacle(closestNode(e.point, size));
 				}
 			},
 			onPointerDown: e => {
 				if (action === 'draw') {
 					startDrawing();
-					drawObstacle(closestNode(e.point));
+					drawObstacle(closestNode(e.point, size));
 				}
 			},
 			onPointerUp: () => {

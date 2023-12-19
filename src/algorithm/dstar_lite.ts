@@ -1,6 +1,7 @@
 import { PriorityQueue } from '@datastructures-js/priority-queue';
-import { NodeBase, Pathfinder, PathfinderParams, PathfindingResult, Position, neighborsFactory, posEqual, useGameState } from '../game';
+import { NodeBase, Pathfinder, PathfinderParams, PathfindingResult, Position, REVERSE_MULTIPLIER, closestNode, neighborsFactory, posEqual, useGameState } from '../game';
 import { animatePathfinding } from '../level';
+import { computeCurves, renderCurveGridMask } from '../curves';
 
 type Node = NodeBase & {
 	rhs: number,
@@ -47,10 +48,16 @@ export default class DstarLite implements Pathfinder {
 
 	stop() { this.stopFlag = true; }
 
-	renderPath(start: Node, target: Node) {
+	renderPath(start: Position, target: Position) {
 		if (!this.graph) return [];
+		const { size, grid, state } = this.params;
+		const { costMulti: multi } = state;
 		const neighbors = neighborsFactory(this.params, false, true);
-		const rec = (cur: Node, path: Node[]): Node[] => {
+		const priority = (p:ReturnType<typeof neighbors>[number]) =>
+			this.graph![p.y][p.x][p.rot].g + p.cost;
+
+		const rec = (pos:NodeBase, path:NodeBase[]):NodeBase[] => {
+			const cur = this.graph![pos.y][pos.x][pos.rot];
 			if (!isFinite(cur.g) || cur === target)
 				return path;
 			let min = cur, minR = Infinity;
@@ -69,6 +76,30 @@ export default class DstarLite implements Pathfinder {
 				return path;
 			return rec(min, path.concat({ ...min }));
 		};
+		if (start.x % 1 !== 0 || start.y % 1 !== 0) {
+			const closest = { ...closestNode(start, size), rot: start.rot };
+			const sorted = neighbors(closest).filter(a => isFinite(priority(a)))
+				.sort((a, b) => priority(a) - priority(b));
+			console.log(sorted)
+			for (const pos of sorted) {
+				const curves = computeCurves(start, pos, state);
+				console.log(curves)
+				const masks = curves.map(c => renderCurveGridMask(c, state));
+				console.log(masks)
+				const idx = masks.findIndex(msk => msk
+					.every(p => grid[start.y + p.y * size + start.x + p.x] < 255));
+				console.log(masks[0].map(p => grid[start.y + p.y * size + start.x + p.x]))
+				if (idx >= 0) {
+					const curve = curves[idx];
+					let cost = masks[idx].reduce((a, p) =>
+						a + p.w + grid[p.y * size + p.x] * multi * p.w, 0);
+					cost *= curve.reverse ? REVERSE_MULTIPLIER : 1;
+					return rec(pos, [{ ...pos, curve, cost }]);
+				}
+			}
+			console.log('failed to find path start');
+			return [];
+		}
 		return rec(start, []);
 	}
 
@@ -95,8 +126,10 @@ export default class DstarLite implements Pathfinder {
 				.map(x => [...Array(rotNumber).keys()]
 					.map(rot => ({ x, y, rot, ...nodeDefaults }))));
 
-		const target = graph[targetPos.y][targetPos.x][targetPos.rot];
-		const start  = graph[startPos.y][startPos.x][startPos.rot];
+		const strt = closestNode(startPos, size);
+		const targ = closestNode(targetPos, size);
+		const target = graph[targ.y][targ.x][targetPos.rot];
+		const start  = graph[strt.y][strt.x][startPos.rot];
 		
 		target.rhs = 0;
 		let totalVisits = 0;
@@ -178,7 +211,7 @@ export default class DstarLite implements Pathfinder {
 			params,
 			success: isFinite(start.g),
 			aborted: this.stopFlag,
-			path: this.renderPath(start, target),
+			path: this.renderPath(startPos, targetPos),
 			nodesVisited: totalVisits,
 			timeConsumed: 0,
 			at: Date.now()
