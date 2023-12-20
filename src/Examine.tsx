@@ -33,7 +33,7 @@ function getRotation(x1: number, y1: number, x2: number, y2: number) {
 
 export default function Examine() {
 	const state = useGameState();
-	const { rotNumber,  } = state;
+	const { rotNumber, viewRadius } = state;
 	const { size, grid } = useLevelState();
 	const [target, setTarget] = useState<Position | null>(null);
 	const [start, setStart] = useState<Position>({ x: Math.round(size / 2), y: Math.round(size / 2) + .45, rot: 0 });
@@ -49,6 +49,19 @@ export default function Examine() {
 	// 		.map(x => [...Array(rotNumber).keys()]
 	// 			.map(rot => ({ x, y, rot }))))
 	// , [size, rotNumber]);
+
+	const visible = useMemo(() => {
+		const r = viewRadius;
+		const nodes: Coords[] = [{ x: 0, y: 0 }];
+		for (let x = 1; x <= r; ++x) {
+			nodes.push({ x, y: 0 }, { x: -x, y: 0 }, { y: x, x: 0 }, { y: -x, x: 0 });
+			const h = Math.sqrt(r ** 2 - x ** 2);
+			for (let y = 1; y <= h; ++y) {
+				nodes.push({ x, y }, { x, y: -y }, { x: -x, y }, { x: -x, y: -y });
+			}
+		}
+		return nodes.map(n => ({ x: start.x + n.x, y: start.y + n.y }));
+	}, [start, viewRadius]);
 
 	const allPaths = useMemo(() => {
 		if (!start || !grid) return null;
@@ -212,6 +225,11 @@ export default function Examine() {
 			return <mesh position={[tx, ty, 0]}>
 				<boxGeometry args={[1, 1, 0]}/>
 				<meshBasicMaterial color={bad ? 'red' : 'rgb(0,255,0)'} opacity={bad ? .7 : w / 2} transparent/>
+			</mesh>;})}
+		{visible && visible.map(({ x, y }) => {
+			return <mesh position={[x, y, 0]}>
+				<boxGeometry args={[1, 1, 0]}/>
+				<meshBasicMaterial color='blue' opacity={.18} transparent/>
 			</mesh>;})}
 	</Canvas></>;
 }

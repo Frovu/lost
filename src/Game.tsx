@@ -5,11 +5,12 @@ import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import { Coords, Position, actions, closestNode, findPath, initRandomLevel, playRound, posEqual, useGameState } from './game';
 import { drawCurveSegment } from './curves';
+import DstarLite from './algorithm/dstar_lite';
 
 const ANIM_STEPS = 24;
 
 export function GameControls() {
-	const { isPlaying, isPathfinding, costMulti, heuristicMulti, animationSpeed, robotLength, robotWidth, action,
+	const { isPlaying, isPathfinding, costMulti, viewRadius, heuristicMulti, animationSpeed, robotLength, robotWidth, action,
 		rotNumber, examineMode, turningRadius, results, set } = useGameState();
 
 	const resultsWithCost = useMemo(() => results.map(res => {
@@ -54,15 +55,18 @@ export function GameControls() {
 				value={animationSpeed} onChange={e => set('animationSpeed', e.target.valueAsNumber)}/></label>
 		</div>
 		<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-			<label title='Robot width'>Robot w=
-				<input style={{ marginLeft: 2, width: 64 }} type='number' min='.6' max='2' step='.1'
+			<label title='Robot width'>w=
+				<input style={{ marginLeft: 2, width: 60 }} type='number' min='.6' max='2' step='.1'
 					value={robotWidth} onChange={e => set('robotWidth', e.target.valueAsNumber)}/></label>
 			<label title='Robot length'>l=
-				<input style={{ marginLeft: 2, width: 64 }} type='number' min='.1' max='2' step='.1'
+				<input style={{ marginLeft: 2, width: 60 }} type='number' min='.1' max='2' step='.1'
 					value={robotLength} onChange={e => set('robotLength', e.target.valueAsNumber)}/></label>
-			<label title='Robot turning radius'>turn r=
-				<input style={{ marginLeft: 2, width: 64 }} type='number' min='0' max='4' step='.1'
+			<label title='Robot turning radius'>turn=
+				<input style={{ marginLeft: 2, width: 60 }} type='number' min='0' max='4' step='.1'
 					value={turningRadius} onChange={e => set('turningRadius', e.target.valueAsNumber)}/></label>
+			<label title='Robot view radius'>view=
+				<input style={{ marginLeft: 2, width: 60 }} type='number' min='3' max='32' step='.5'
+					value={viewRadius} onChange={e => set('viewRadius', e.target.valueAsNumber)}/></label>
 			<label title='Number of possible stationary rotations'>Rot
 				<select style={{ marginLeft: 2 }}
 					value={rotNumber} onChange={e => set('rotNumber', parseInt(e.target.value))}>
@@ -108,7 +112,7 @@ const getRotation = (a: Coords, b: Coords) => {
 };
 
 export default function Game() {
-	const { grid, size, isGenerating, drawObstacle, startDrawing, finishDrawing, undoObstacle } = useLevelState();
+	const { grid, size, isGenerating, originalGrid, drawObstacle, startDrawing, finishDrawing, undoObstacle } = useLevelState();
 	const state = useGameState();
 	const { pathfinder, path: curPath, isPlaying, isPathfinding, rotNumber, animationSpeed,
 		results, playerPos, targetPos, action: act, set, reset } = state;
@@ -137,18 +141,16 @@ export default function Game() {
 
 	useEffect(() => { if (!isPlaying) setAnimationStep(0); }, [isPlaying]);
 
-	useEffect(() => { if (posEqual(playerPos, targetPos)) set('isPlaying', false); }, [playerPos, set, targetPos]);
-
-	useEffect(() => reset(), [grid, reset]);
+	useEffect(() => reset(), [originalGrid, reset]);
 
 	useEffect(() => {
-		if (grid && !pathfinder && !isGenerating)
+		if (grid && !pathfinder && !isGenerating && !isPlaying)
 			findPath(false);
-	}, [grid, isGenerating, pathfinder]);
+	}, [grid, isGenerating, isPlaying, pathfinder]);
 
 	const [animDist, animPos, pathGeom] = useMemo(() => {
 		const curve = curPath?.[0]?.curve;
-		if (!curPath || !curve || posEqual(playerPos, targetPos) || animationStep >= ANIM_STEPS) 
+		if (!curPath || !curve || !isPlaying || posEqual(playerPos, targetPos) || animationStep >= ANIM_STEPS) 
 			return [null, null, null];
 		const first = new THREE.Path();
 		drawCurveSegment(first, curve, state);
@@ -168,7 +170,7 @@ export default function Game() {
 			c && drawCurveSegment(p, c, state);
 		const geom = new THREE.BufferGeometry().setFromPoints(p.getPoints(8));
 		return [dist, pos, geom];
-	}, [curPath, playerPos, targetPos, state, animationStep, rotNumber]);
+	}, [curPath, isPlaying, playerPos, targetPos, animationStep, state, rotNumber]);
 
 	useEffect(() => {
 		if (!isPlaying || isPathfinding)
@@ -176,8 +178,8 @@ export default function Game() {
 		if (action && action !== 'draw')
 			set('action', null);
 		if (animationStep >= ANIM_STEPS) {
-			playRound();
 			setAnimationStep(0);
+			playRound();
 		} else {
 			const interv = setTimeout(() => {
 				setAnimationStep(s => s + 1);
@@ -214,6 +216,9 @@ export default function Game() {
 			}
 		},
 		onPointerMove: e => {
+			const graph = (pathfinder as DstarLite).graph;
+			const nodes = graph[Math.round(e.point.y)]?.[Math.round(e.point.x)]?.filter(n => isFinite(n.g));
+			console.log(nodes?.map(n => [n.x, n.y, n.g.toFixed(2), n.rhs.toFixed(2)].join(', ')))
 			if (action?.startsWith('set')) {
 				const which = action === 'set goal' ? 'targetPos' : 'playerPos';
 				if (stage === 0) {
@@ -237,15 +242,15 @@ export default function Game() {
 		onPointerLeave: () => {
 			finishDrawing();
 		},
-	}}/>, [action, drawObstacle, finishDrawing, set, size, stage, startDrawing, state]);
+	}}/>, [action, drawObstacle, finishDrawing, pathfinder, set, size, stage, startDrawing, state]);
 
 	return <Canvas flat orthographic onContextMenu={e => e.preventDefault()}>
 		{level}
 		<Player pos={targetPos} shadow={true}/>
-		<Player pos={(isPlaying && animPos) || playerPos}/>
+		<Player pos={((isPlaying && !isPathfinding) && animPos) || playerPos}/>
 		{!isPlaying && paths}
 		{/* @ts-ignore */}
-		{isPlaying && pathGeom && <line position={[playerPos.x, playerPos.y, 0]} geometry={pathGeom}>
+		{pathGeom && <line position={[playerPos.x, playerPos.y, 0]} geometry={pathGeom}>
 			<lineBasicMaterial color='cyan' transparent/>
 		</line> }
 	</Canvas>;

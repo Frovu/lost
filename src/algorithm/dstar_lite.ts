@@ -1,6 +1,6 @@
 import { PriorityQueue } from '@datastructures-js/priority-queue';
 import { NodeBase, Pathfinder, PathfinderParams, PathfindingResult, Position, applyMask,
-	closestNode, distance, neighborsFactory, neighborsUnaligned, posEqual, useGameState } from '../game';
+	closestNode, distance, getRadius, neighborsFactory, neighborsUnaligned, posEqual, useGameState } from '../game';
 import { animatePathfinding } from '../level';
 import { computeCurves, renderCurveGridMask } from '../curves';
 
@@ -39,34 +39,46 @@ export default class DstarLite implements Pathfinder {
 	graph: Node[][][];
 	queue: PriorityQueue<Node>;
 	goal: Node;
+	start: Position;
+	km: number=0;
 	stopFlag: boolean=false;
-	calculateKey: (a: Node) => Node;
 	heuristic: (a: Position, b: Position) => number;
 	neighbors: (p: Position) => Required<NodeBase>[];
+	allNeighbors: (p: Position) => Required<NodeBase>[];
 	 
 	constructor(params: PathfinderParams, start: Position, goal: Position) {
-		const { size, state: { rotNumber, heuristicMulti } } = params;
+		const { size, grid, state: { rotNumber, heuristicMulti } } = params;
 		this.params = params;
+		this.params.grid = grid.slice();
 		this.graph = [...Array(size).keys()]
 			.map(y => [...Array(size).keys()]
 				.map(x => [...Array(rotNumber).keys()]
 					.map(rot => ({ x, y, rot, ...nodeDefaults }))));
 		const h = this.heuristic = (a: Position, b: Position) =>
 			heuristicFoo(a, b, rotNumber, heuristicMulti);
-		this.goal = this.closestAligned(goal, start);
+		this.start = start;
+		this.goal = this.closestAligned(goal, start) ?? { x: 0, y: 0, rot: 0 };
 		this.goal.rhs = 0;
 
 		this.neighbors = neighborsFactory(params, true);
-		this.calculateKey = (a: Node) => {
-			const k = Math.min(a.g, a.rhs);
-			a.k1 = k + h(start, a);
-			a.k2 = k;
-			return a;
-		};
+		this.allNeighbors = neighborsFactory(params, true, true);
 
 		const ini = [this.calculateKey(this.goal)];
 		this.queue = PriorityQueue.fromArray<Node>(ini, compare);
 	}
+
+	calculateKey(a: Node) {
+		const k = Math.min(a.g, a.rhs);
+		a.k1 = k + this.heuristic(this.start, a) + this.km;
+		a.k2 = k;
+		return a;
+	};
+
+	updateNode(a: Node) {
+		this.queue.remove(node => posEqual(a, node));
+		if (a.g !== a.rhs)
+			this.queue.enqueue(this.calculateKey(a));
+	};
 
 	stop() { this.stopFlag = true; }
 
@@ -86,7 +98,7 @@ export default class DstarLite implements Pathfinder {
 	renderPath(start: Position, target: Position) {
 		if (!this.graph) return [];
 		const { state } = this.params;
-		const neighbors = neighborsFactory(this.params, false, true);
+		const neighbors = neighborsFactory(this.params, false);
 		const priority = (p:ReturnType<typeof neighbors>[number]) =>
 			this.graph![p.y][p.x][p.rot].g + p.cost;
 
@@ -132,22 +144,15 @@ export default class DstarLite implements Pathfinder {
 	}
 
 	async findPath(pos: Position): Promise<PathfindingResult> {
-		const { params, goal, graph, queue, neighbors, calculateKey } = this;
+		const { params, goal, graph, queue, neighbors } = this;
 		const { size, limit } = params;
 
 		const start = this.closestAligned(pos, goal);
-
-		const updateNode = (a: Node) => {
-			queue.remove(node => posEqual(a, node));
-			if (a.g !== a.rhs)
-				queue.enqueue(calculateKey(a));
-		};
-
 		let totalVisits = 0;
 
 		const meta = new Uint8ClampedArray(params.size ** 2);
 
-		while (queue.front() && (compare(queue.front(), calculateKey(start)) <= 0 || start.rhs > start.g)) {
+		while (queue.front() && (compare(queue.front(), this.calculateKey(start)) <= 0 || start.rhs > start.g)) {
 			const node = queue.pop();
 			totalVisits++;
 			
@@ -168,7 +173,7 @@ export default class DstarLite implements Pathfinder {
 
 			const oldK1 = node.k1;
 			const oldK2 = node.k2;
-			calculateKey(node);
+			this.calculateKey(node);
 			if (oldK1 < node.k1 || (oldK1 === node.k1 && oldK2 < node.k2)) {
 				queue.enqueue(node);
 
@@ -178,7 +183,7 @@ export default class DstarLite implements Pathfinder {
 					const neighbor = graph[y][x][rot];
 					if (neighbor !== goal)
 						neighbor.rhs = Math.min(neighbor.rhs, node.g + cost);
-					updateNode(neighbor);
+					this.updateNode(neighbor);
 				}
 			} else {
 				const gOld = node.g;
@@ -189,7 +194,7 @@ export default class DstarLite implements Pathfinder {
 						s.rhs = Math.min.apply(null, neighbors(s)
 							.map(n => n.cost + graph[n.y][n.x][n.rot].g));
 					
-					updateNode(s);
+					this.updateNode(s);
 				}
 			}
 
@@ -203,6 +208,7 @@ export default class DstarLite implements Pathfinder {
 					}
 					meta[node.y * size + node.x] = 3;
 					await animatePathfinding(meta.slice());
+					await new Promise(res => setTimeout(res, 10));
 				}
 			} else {
 				if (totalVisits % 500 === 0)
@@ -210,8 +216,8 @@ export default class DstarLite implements Pathfinder {
 			}
 		}
 
-		if (params.animate)
-			animatePathfinding(null);
+		// if (params.animate)
+		// 	animatePathfinding(null);
 		return {
 			params,
 			success: isFinite(start.g),
@@ -219,5 +225,43 @@ export default class DstarLite implements Pathfinder {
 			nodesVisited: totalVisits,
 			at: Date.now()
 		};
+	};
+
+	async updatePath(last: Position, start: Position, newGrid: Uint8ClampedArray) {
+		const { params, graph, neighbors, allNeighbors } = this;
+		const { state, grid, size } = params;
+	
+		const inRadius = getRadius(start, params);
+		this.params.grid = newGrid.slice();
+		this.start = start;
+		this.km += this.heuristic(last, start);
+
+		if (!inRadius.find((({ x, y }) => newGrid[y * size + x] !== grid[y * size + x])))
+			return null;
+
+		console.log('update path');
+		
+		const snode = this.graph[start.y][start.x][start.rot];
+		for (const { x, y } of inRadius) {
+			for (let rot = 0; rot < state.rotNumber; ++rot) {
+				const node = graph[y][x][rot];
+				// if (!isFinite(node.rhs))
+				// 	continue;
+				const oldRhs = node.rhs;
+				node.rhs = Math.min.apply(null, neighbors(node)
+					.map(n => n.cost + node.g));
+				if (node.rhs !== oldRhs)
+					console.log(x, y, node.rhs)
+				if (node.rhs !== oldRhs)
+					this.updateNode(node);
+			}
+		}
+		snode.g = snode.rhs = Math.min.apply(null, neighbors(snode)
+			.map(n => n.cost + snode.g));
+		this.updateNode(snode);
+		console.log(snode)
+
+		return this.findPath(start);
+
 	};
 }

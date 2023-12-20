@@ -25,6 +25,7 @@ const defaultState = {
 	targetPos: { x: 10, y: 10, rot: 1 },
 	algorithm: 'D* lite' as typeof algoOptions[number],
 	turningRadius: 1,
+	viewRadius: 4,
 	neighborsRadius: 2,
 	rotNumber: 8,
 	action: null as null | { action: typeof actions[number], stage: number },
@@ -64,7 +65,9 @@ export type PathfindingResult = {
 
 export interface Pathfinder {
 	stop: () => void,
-	findPath: (position: Position, target: Position) => Promise<PathfindingResult>,
+	findPath: (position: Position) => Promise<PathfindingResult>,
+	renderPath: (a: Position, b: Position) => NodeBase[],
+	updatePath: (last: Position, start: Position, newGrid: Uint8ClampedArray) => Promise<null | PathfindingResult>,
 };
 
 export const useGameState = create<GameState>()(persist((set) => ({
@@ -82,19 +85,41 @@ export const useGameState = create<GameState>()(persist((set) => ({
 		return { ...st, results: [], isPlaying: false, isPathfinding: false }; }),
 }), {
 	name: 'you lost',
-	partialize: ({ playerPos, targetPos, algorithm, turningRadius, rotNumber, robotLength, robotWidth, examineMode , heuristicMulti, costMulti }) =>
-		({ playerPos, targetPos, algorithm, turningRadius, rotNumber, robotLength, robotWidth, examineMode, heuristicMulti, costMulti })
+	partialize: ({ viewRadius, animationSpeed, playerPos, targetPos, algorithm, turningRadius, rotNumber, robotLength, robotWidth, examineMode , heuristicMulti, costMulti }) =>
+		({ viewRadius, animationSpeed, playerPos, targetPos, algorithm, turningRadius, rotNumber, robotLength, robotWidth, examineMode, heuristicMulti, costMulti })
 }));
 
 export const playRound = () => useGameState.setState(state => {
-	const { isPathfinding, path } = state;
+	const { isPathfinding, pathfinder, path, playerPos, targetPos, set } = state;
+	const { grid } = useLevelState.getState();
 	const nextPos = path?.[0];
-	if (isPathfinding || !path || !nextPos) return state;
+	if (isPathfinding || !path || !grid || !pathfinder || !nextPos) return state;
+
+	if (path.length === 1) {
+		return {
+			isPathfinding: false,
+			isPlaying: false,
+			path: null,
+			playerPos: nextPos,
+		};
+	}
+
+	pathfinder.updatePath(playerPos, nextPos, grid).then(res => {
+		if (res?.aborted) {
+			set('path', null);
+		} else if (res) {
+			set('path', pathfinder.renderPath(nextPos, targetPos));
+		} else {
+			set('path', path.slice(1));
+		}
+		set('isPathfinding', false);
+	});
 	
 	return {
+		isPathfinding: true,
 		results: [],
-		playerPos: nextPos,
-		path: path.slice(1)
+		path: null,
+		playerPos: nextPos
 	};
 });
 
@@ -113,6 +138,8 @@ export const findPath = (force=true) => useGameState.setState(state => {
 			set('path', path);
 		} else {
 			set('path', null);
+			set('isPathfinding', false);
+			set('isPlaying', false);
 		}
 	});
 
@@ -157,36 +184,35 @@ export const initRandomLevel = async () => {
 		if (distance(start, goal) < (size - 6) * .8)
 			continue;
 		i += 16;
-		// if (await checkReachable(state, start, goal)) {
 		console.timeEnd('level init');
 		useGameState.setState(st => ({
 			...st, results: [], playerPos: start, targetPos: goal }));
 		return findPath();
-		// }
 	}
 	console.log('too much random retries');
 	console.timeEnd('level init');
 };
 
-// export function checkReachable(st: GameState, a: Position, b: Position) {
-// 	const { grid, size } = useLevelState.getState();
-// 	if (!grid) return false;
-// 	const state = { ...st, heuristicMulti: 10 };
-// 	const forw = new DstarLite({ state, grid, size, animate: false, limit: size * 10 });
-// 	const back = new DstarLite({ state, grid, size, animate: false, limit: size * 10 });
-// 	return new Promise<boolean>(resolve => {
-// 		const found = (r: PathfindingResult) => {
-// 			if (!r.aborted && r.success)
-// 				resolve(true);
-// 			else
-// 				resolve(false);
-// 			forw.stop();
-// 			back.stop();
-// 		};
-// 		forw.findPath(a, b).then(found);
-// 		back.findPath(b, a).then(found);
-// 	});
-// }
+export function getRadius(p: Position, params: PathfinderParams) {
+	const { size, state } = params;
+	const { viewRadius: r } = state;
+
+	const pos = closestNode(p, size);
+	const cells = [];
+	for (let x = 1; x <= r; ++x) {
+		cells.push({ x, y: 0 }, { x: -x, y: 0 }, { y: x, x: 0 }, { y: -x, x: 0 });
+		const h = Math.sqrt(r ** 2 - x ** 2);
+		for (let y = 1; y <= h; ++y) {
+			cells.push({ x, y }, { x, y: -y }, { x: -x, y }, { x: -x, y: -y });
+		}
+	}
+	return cells.map(c => {
+		const x = c.x + pos.x, y = c.y + pos.y;
+		if (x < 0 || x >= size || y < 0 || y >= size)
+			return null;
+		return { x, y };
+	}).filter(c => c != null) as Coords[];
+}
 
 export function applyMask(pos: Position, curve: PathCurve, mask: ReturnType<typeof renderCurveGridMask>,
 	params: PathfinderParams, noWalls=false, reverse=false) {
@@ -194,8 +220,13 @@ export function applyMask(pos: Position, curve: PathCurve, mask: ReturnType<type
 	let cost = 0;
 	for (const { x, y, w } of mask) {
 		const c = grid[(y + pos.y) * size + x + pos.x];
-		if (!noWalls && (c == null || c >= 255))
-			return null;
+		if (c == null || c >= 255) {
+			if (noWalls)
+				cost += Infinity;
+			else
+				return null;
+
+		}
 		cost += (1 + c * costMulti / 256) * w;
 	}
 	cost *= reverse !== curve.reverse ? REVERSE_MULTIPLIER : 1;
