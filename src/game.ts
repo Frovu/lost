@@ -36,12 +36,12 @@ const defaultState = {
 	costMulti: 4,
 	pathfinder: null as null | Pathfinder,
 	path: null as null | NodeBase[],
-	results: [] as PathfindingResult[]
+	results: [] as Required<PathfindingResult>[]
 };
 
 export type GameState = typeof defaultState & {
 	set: <T extends keyof typeof defaultState>(k: T, val: typeof defaultState[T]) => void,
-	addResult: (r: PathfindingResult) => void,
+	addResult: (r: Required<PathfindingResult>) => void,
 	reset: () => void,
 };
 
@@ -57,9 +57,8 @@ export type PathfindingResult = {
 	success?: boolean,
 	params: PathfinderParams,
 	aborted: boolean,
-	path: NodeBase[],
+	path?: NodeBase[],
 	nodesVisited: number,
-	timeConsumed: number,
 	at: number,
 };
 
@@ -106,11 +105,12 @@ export const findPath = (force=true) => useGameState.setState(state => {
 		return state;
 	state.pathfinder?.stop();
 
-	const pathfinder = new DstarLite({ state, grid, size, animate: true });
-	pathfinder.findPath(playerPos, targetPos).then(res => {
+	const pathfinder = new DstarLite({ state, grid, size, animate: true }, playerPos, targetPos);
+	pathfinder.findPath(playerPos).then(res => {
 		if (!res?.aborted) {
-			addResult(res);
-			set('path', res.path);
+			const path = pathfinder.renderPath(playerPos, targetPos);
+			addResult({ ...res, success: true, path });
+			set('path', path);
 		} else {
 			set('path', null);
 		}
@@ -168,25 +168,25 @@ export const initRandomLevel = async () => {
 	console.timeEnd('level init');
 };
 
-export function checkReachable(st: GameState, a: Position, b: Position) {
-	const { grid, size } = useLevelState.getState();
-	if (!grid) return false;
-	const state = { ...st, heuristicMulti: 10 };
-	const forw = new DstarLite({ state, grid, size, animate: false, limit: size * 10 });
-	const back = new DstarLite({ state, grid, size, animate: false, limit: size * 10 });
-	return new Promise<boolean>(resolve => {
-		const found = (r: PathfindingResult) => {
-			if (!r.aborted && r.success)
-				resolve(true);
-			else
-				resolve(false);
-			forw.stop();
-			back.stop();
-		};
-		forw.findPath(a, b).then(found);
-		back.findPath(b, a).then(found);
-	});
-}
+// export function checkReachable(st: GameState, a: Position, b: Position) {
+// 	const { grid, size } = useLevelState.getState();
+// 	if (!grid) return false;
+// 	const state = { ...st, heuristicMulti: 10 };
+// 	const forw = new DstarLite({ state, grid, size, animate: false, limit: size * 10 });
+// 	const back = new DstarLite({ state, grid, size, animate: false, limit: size * 10 });
+// 	return new Promise<boolean>(resolve => {
+// 		const found = (r: PathfindingResult) => {
+// 			if (!r.aborted && r.success)
+// 				resolve(true);
+// 			else
+// 				resolve(false);
+// 			forw.stop();
+// 			back.stop();
+// 		};
+// 		forw.findPath(a, b).then(found);
+// 		back.findPath(b, a).then(found);
+// 	});
+// }
 
 export function applyMask(pos: Position, curve: PathCurve, mask: ReturnType<typeof renderCurveGridMask>,
 	params: PathfinderParams, noWalls=false, reverse=false) {

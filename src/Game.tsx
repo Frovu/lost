@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { Coords, Position, actions, closestNode, findPath, initRandomLevel, playRound, posEqual, useGameState } from './game';
 import { drawCurveSegment } from './curves';
 
-const ANIM_STEPS = 32;
+const ANIM_STEPS = 24;
 
 export function GameControls() {
 	const { isPlaying, isPathfinding, costMulti, heuristicMulti, animationSpeed, robotLength, robotWidth, action,
@@ -242,7 +242,7 @@ export default function Game() {
 	return <Canvas flat orthographic onContextMenu={e => e.preventDefault()}>
 		{level}
 		<Player pos={targetPos} shadow={true}/>
-		<Player pos={animPos ?? playerPos}/>
+		<Player pos={(isPlaying && animPos) || playerPos}/>
 		{!isPlaying && paths}
 		{/* @ts-ignore */}
 		{isPlaying && pathGeom && <line position={[playerPos.x, playerPos.y, 0]} geometry={pathGeom}>

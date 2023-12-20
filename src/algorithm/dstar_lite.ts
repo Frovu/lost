@@ -36,18 +36,52 @@ function heuristicFoo(pos: Position, target: Position, rotNumber: number, multi:
 
 export default class DstarLite implements Pathfinder {
 	params: PathfinderParams;
-	graph: Node[][][] | undefined;
+	graph: Node[][][];
+	queue: PriorityQueue<Node>;
+	goal: Node;
 	stopFlag: boolean=false;
+	calculateKey: (a: Node) => Node;
 	heuristic: (a: Position, b: Position) => number;
+	neighbors: (p: Position) => Required<NodeBase>[];
 	 
-	constructor(params: PathfinderParams) {
-		const rn = params.state.rotNumber;
-		const multi = params.state.heuristicMulti;
+	constructor(params: PathfinderParams, start: Position, goal: Position) {
+		const { size, state: { rotNumber, heuristicMulti } } = params;
 		this.params = params;
-		this.heuristic = (a: Position, b: Position) => heuristicFoo(a, b, rn, multi);
+		this.graph = [...Array(size).keys()]
+			.map(y => [...Array(size).keys()]
+				.map(x => [...Array(rotNumber).keys()]
+					.map(rot => ({ x, y, rot, ...nodeDefaults }))));
+		const h = this.heuristic = (a: Position, b: Position) =>
+			heuristicFoo(a, b, rotNumber, heuristicMulti);
+		this.goal = this.closestAligned(goal, start);
+		this.goal.rhs = 0;
+
+		this.neighbors = neighborsFactory(params, true);
+		this.calculateKey = (a: Node) => {
+			const k = Math.min(a.g, a.rhs);
+			a.k1 = k + h(start, a);
+			a.k2 = k;
+			return a;
+		};
+
+		const ini = [this.calculateKey(this.goal)];
+		this.queue = PriorityQueue.fromArray<Node>(ini, compare);
 	}
 
 	stop() { this.stopFlag = true; }
+
+	closestAligned(pos: Position, opposite: Position) {
+		if (pos.x % 1 === 0 && pos.y % 1 === 0)
+			return this.graph[pos.y][pos.x][pos.rot];
+		const neighbors = neighborsUnaligned(pos, this.params);
+		const guess = neighbors.sort((a, b) => {
+			const ra = a.cost + this.heuristic(a, opposite);
+			const rb = b.cost + this.heuristic(b, opposite);
+			return ra - rb;
+		})[0];
+		const p = guess ?? closestNode(pos, this.params.size);
+		return this.graph[p.y][p.x][p.rot];
+	}
 
 	renderPath(start: Position, target: Position) {
 		if (!this.graph) return [];
@@ -97,17 +131,11 @@ export default class DstarLite implements Pathfinder {
 		return rec(start, []);
 	}
 
-	async findPath(startPos: Position, targetPos: Position): Promise<PathfindingResult> {
-		const { params, heuristic } = this;
-		const { size, state, limit } = params;
-		const { rotNumber } = state;
+	async findPath(pos: Position): Promise<PathfindingResult> {
+		const { params, goal, graph, queue, neighbors, calculateKey } = this;
+		const { size, limit } = params;
 
-		const calculateKey = (a: Node) => {
-			const k = Math.min(a.g, a.rhs);
-			a.k1 = k + heuristic(start, a);
-			a.k2 = k;
-			return a;
-		};
+		const start = this.closestAligned(pos, goal);
 
 		const updateNode = (a: Node) => {
 			queue.remove(node => posEqual(a, node));
@@ -115,32 +143,8 @@ export default class DstarLite implements Pathfinder {
 				queue.enqueue(calculateKey(a));
 		};
 
-		const graph = this.graph = [...Array(size).keys()]
-			.map(y => [...Array(size).keys()]
-				.map(x => [...Array(rotNumber).keys()]
-					.map(rot => ({ x, y, rot, ...nodeDefaults }))));
-
-		const [start, target] = [startPos, targetPos].map((pos, i) => {
-			if (pos.x % 1 === 0 && pos.y % 1 === 0)
-				return graph[pos.y][pos.x][pos.rot];
-			const neighbors = neighborsUnaligned(pos, params);
-			const opposite = i === 0 ? targetPos : startPos;
-			const guess = neighbors.sort((a, b) => {
-				const ra = a.cost + heuristic(a, opposite);
-				const rb = b.cost + heuristic(b, opposite);
-				return ra - rb;
-			})[0];
-			const p = guess ?? closestNode(pos, size);
-			return graph[p.y][p.x][p.rot];
-		});
-		
-		target.rhs = 0;
 		let totalVisits = 0;
 
-		const neighbors = neighborsFactory(params, true);
-
-		const ini = [calculateKey(target)];
-		const queue = PriorityQueue.fromArray<Node>(ini, compare);
 		const meta = new Uint8ClampedArray(params.size ** 2);
 
 		while (queue.front() && (compare(queue.front(), calculateKey(start)) <= 0 || start.rhs > start.g)) {
@@ -157,9 +161,7 @@ export default class DstarLite implements Pathfinder {
 				return {
 					params,
 					aborted: true,
-					path: [],
 					nodesVisited: totalVisits,
-					timeConsumed: 0,
 					at: Date.now()
 				};
 			}
@@ -174,7 +176,7 @@ export default class DstarLite implements Pathfinder {
 				node.g = node.rhs;
 				for (const { x, y, rot, cost } of neighbors(node)) {
 					const neighbor = graph[y][x][rot];
-					if (neighbor !== target)
+					if (neighbor !== goal)
 						neighbor.rhs = Math.min(neighbor.rhs, node.g + cost);
 					updateNode(neighbor);
 				}
@@ -183,7 +185,7 @@ export default class DstarLite implements Pathfinder {
 				node.g = Infinity;
 				for (const { x, y, rot, cost } of [...neighbors(node), node]) {
 					const s = graph[y][x][rot];
-					if (s.rhs === gOld + (cost ?? 0) && s !== target)
+					if (s.rhs === gOld + (cost ?? 0) && s !== goal)
 						s.rhs = Math.min.apply(null, neighbors(s)
 							.map(n => n.cost + graph[n.y][n.x][n.rot].g));
 					
@@ -214,9 +216,7 @@ export default class DstarLite implements Pathfinder {
 			params,
 			success: isFinite(start.g),
 			aborted: this.stopFlag,
-			path: this.renderPath(startPos, targetPos),
 			nodesVisited: totalVisits,
-			timeConsumed: 0,
 			at: Date.now()
 		};
 	};
