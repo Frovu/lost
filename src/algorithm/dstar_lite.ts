@@ -31,7 +31,7 @@ function compare(a: Node, b: Node) {
 function heuristicFoo(pos: Position, target: Position, rotNumber: number, multi: number) {
 	const dist = Math.sqrt((target.x - pos.x) ** 2 + (target.y - pos.y) ** 2);
 	const rotDiff = Math.abs(target.rot - pos.rot) / rotNumber;
-	return dist * 1.5 * multi + rotDiff * 2;
+	return dist * 1.5 * multi + rotDiff * 4;
 }
 
 export default class DstarLite implements Pathfinder {
@@ -43,7 +43,8 @@ export default class DstarLite implements Pathfinder {
 	km: number=0;
 	stopFlag: boolean=false;
 	heuristic: (a: Position, b: Position) => number;
-	neighbors: (p: Position) => Required<NodeBase>[];
+	pred: (p: Position) => Required<NodeBase>[];
+	succ: (p: Position) => Required<NodeBase>[];
 	allNeighbors: (p: Position) => Required<NodeBase>[];
 	 
 	constructor(params: PathfinderParams, start: Position, goal: Position) {
@@ -54,13 +55,14 @@ export default class DstarLite implements Pathfinder {
 			.map(y => [...Array(size).keys()]
 				.map(x => [...Array(rotNumber).keys()]
 					.map(rot => ({ x, y, rot, ...nodeDefaults }))));
-		const h = this.heuristic = (a: Position, b: Position) =>
+		this.heuristic = (a: Position, b: Position) =>
 			heuristicFoo(a, b, rotNumber, heuristicMulti);
 		this.start = start;
 		this.goal = this.closestAligned(goal, start) ?? { x: 0, y: 0, rot: 0 };
 		this.goal.rhs = 0;
 
-		this.neighbors = neighborsFactory(params, true);
+		this.pred = neighborsFactory(params, true);
+		this.succ = neighborsFactory(params, false);
 		this.allNeighbors = neighborsFactory(params, true, true);
 
 		const ini = [this.calculateKey(this.goal)];
@@ -75,6 +77,8 @@ export default class DstarLite implements Pathfinder {
 	};
 
 	updateNode(a: Node) {
+		a.rhs = Math.min.apply(null, this.succ(a)
+			.map(n => n.cost + this.graph[n.y][n.x][n.rot].g));
 		this.queue.remove(node => posEqual(a, node));
 		if (a.g !== a.rhs)
 			this.queue.enqueue(this.calculateKey(a));
@@ -102,7 +106,7 @@ export default class DstarLite implements Pathfinder {
 		const priority = (p:ReturnType<typeof neighbors>[number]) =>
 			this.graph![p.y][p.x][p.rot].g + p.cost;
 
-		const rec = (pos:NodeBase, path:NodeBase[]):NodeBase[] => {
+		const rec = (pos:NodeBase, path:Required<NodeBase>[]):Required<NodeBase>[] => {
 			const cur = this.graph![pos.y][pos.x][pos.rot];
 			// try to move to the goal directly
 			if (distance(cur, target) < 5) {
@@ -113,16 +117,16 @@ export default class DstarLite implements Pathfinder {
 						return [...path, { ...target, ...res }];
 				}
 			}
-			if (!isFinite(cur.g) || cur === target)
+			if (!isFinite(cur.rhs) || cur === target)
 				return path;
-			let min = cur, minR = Infinity;
+			let min = cur as Required<NodeBase>, minR = Infinity;
 			for (const p of neighbors(cur)) {
 				const node = this.graph![p.y][p.x][p.rot];
 				const r = node.g + p.cost;
 				if (!min || minR > r) {
 					node.curve = p.curve;
 					node.cost = p.cost;
-					min = node;
+					min = node as any;
 					minR = r;
 				}
 			}
@@ -144,7 +148,7 @@ export default class DstarLite implements Pathfinder {
 	}
 
 	async findPath(pos: Position): Promise<PathfindingResult> {
-		const { params, goal, graph, queue, neighbors } = this;
+		const { params, goal, graph, queue, pred } = this;
 		const { size, limit } = params;
 
 		const start = this.closestAligned(pos, goal);
@@ -152,12 +156,12 @@ export default class DstarLite implements Pathfinder {
 
 		const meta = new Uint8ClampedArray(params.size ** 2);
 
-		while (queue.front() && (compare(queue.front(), this.calculateKey(start)) <= 0 || start.rhs > start.g)) {
+		while (queue.front() && (compare(queue.front(), this.calculateKey(start)) < 0 || start.rhs !== start.g)) {
 			const node = queue.pop();
 			totalVisits++;
 			
 			node.visists ++;
-			if (node.visists > 2)
+			if (node.visists > 3)
 				continue;
 
 			if (this.stopFlag || totalVisits > (limit ?? 99999)) {
@@ -179,23 +183,15 @@ export default class DstarLite implements Pathfinder {
 
 			} else if (node.g > node.rhs) {
 				node.g = node.rhs;
-				for (const { x, y, rot, cost } of neighbors(node)) {
-					const neighbor = graph[y][x][rot];
-					if (neighbor !== goal)
-						neighbor.rhs = Math.min(neighbor.rhs, node.g + cost);
-					this.updateNode(neighbor);
-				}
+				for (const { x, y, rot } of pred(node))
+					this.updateNode(graph[y][x][rot]);
+
 			} else {
-				const gOld = node.g;
+				if (node === goal) continue;
 				node.g = Infinity;
-				for (const { x, y, rot, cost } of [...neighbors(node), node]) {
-					const s = graph[y][x][rot];
-					if (s.rhs === gOld + (cost ?? 0) && s !== goal)
-						s.rhs = Math.min.apply(null, neighbors(s)
-							.map(n => n.cost + graph[n.y][n.x][n.rot].g));
-					
-					this.updateNode(s);
-				}
+				for (const { x, y, rot } of pred(node))
+					this.updateNode(graph[y][x][rot]);
+				this.updateNode(node);
 			}
 
 			if (params.animate) {
@@ -216,11 +212,11 @@ export default class DstarLite implements Pathfinder {
 			}
 		}
 
-		// if (params.animate)
-		// 	animatePathfinding(null);
+		if (params.animate)
+			animatePathfinding(null);
 		return {
 			params,
-			success: isFinite(start.g),
+			success: isFinite(start.rhs),
 			aborted: this.stopFlag,
 			nodesVisited: totalVisits,
 			at: Date.now()
@@ -228,40 +224,32 @@ export default class DstarLite implements Pathfinder {
 	};
 
 	async updatePath(last: Position, start: Position, newGrid: Uint8ClampedArray) {
-		const { params, graph, neighbors, allNeighbors } = this;
-		const { state, grid, size } = params;
+		const { params, graph, succ, allNeighbors } = this;
+		// const { state, grid, size } = params;
 	
-		const inRadius = getRadius(start, params);
-		this.params.grid = newGrid.slice();
 		this.start = start;
-		this.km += this.heuristic(last, start);
+		// this.km += this.heuristic(last, start) / 4;
 
-		if (!inRadius.find((({ x, y }) => newGrid[y * size + x] !== grid[y * size + x])))
-			return null;
+		// if (!somethingChanged)
+		// 	return null;
 
 		console.log('update path');
-		
-		const snode = this.graph[start.y][start.x][start.rot];
-		for (const { x, y } of inRadius) {
-			for (let rot = 0; rot < state.rotNumber; ++rot) {
-				const node = graph[y][x][rot];
-				// if (!isFinite(node.rhs))
-				// 	continue;
-				const oldRhs = node.rhs;
-				node.rhs = Math.min.apply(null, neighbors(node)
-					.map(n => n.cost + node.g));
-				if (node.rhs !== oldRhs)
-					console.log(x, y, node.rhs)
-				if (node.rhs !== oldRhs)
-					this.updateNode(node);
-			}
-		}
-		snode.g = snode.rhs = Math.min.apply(null, neighbors(snode)
-			.map(n => n.cost + snode.g));
-		this.updateNode(snode);
-		console.log(snode)
 
-		return this.findPath(start);
+		const s = this.graph[start.y][start.x][start.rot];
+		s.g = Infinity;
+		for (const node of this.queue.toArray())
+			this.calculateKey(node);
+		for (const { x, y, rot } of allNeighbors(s)) {
+			const node = graph[y][x][rot];
+			this.updateNode(node);
+		}
+		this.updateNode(s);
+
+		const res = await this.findPath(start);
+		console.log(res)
+		console.log(s, succ(s).map(n => this.graph[n.y][n.x][n.rot]).filter(n => isFinite(n.g)))
+		console.log(this.renderPath(start, this.goal))
+		return res
 
 	};
 }

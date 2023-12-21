@@ -6,7 +6,7 @@ import DstarLite from './algorithm/dstar_lite';
 
 export const algoOptions = ['A*', 'D* lite'] as const;
 export const actions = ['draw', 'set goal', 'set pos'] as const;
-export const REVERSE_MULTIPLIER = 4;
+export const REVERSE_MULTIPLIER = 1.5;
 
 export type Coords = { x: number, y: number };
 export type Position = { x: number, y: number, rot: number };
@@ -35,8 +35,8 @@ const defaultState = {
 	animationSpeed: 4,
 	heuristicMulti: 1,
 	costMulti: 4,
-	pathfinder: null as null | Pathfinder,
-	path: null as null | NodeBase[],
+	pathfinder: null as null | DstarLite,
+	path: null as null | Required<NodeBase>[],
 	results: [] as Required<PathfindingResult>[]
 };
 
@@ -66,7 +66,7 @@ export type PathfindingResult = {
 export interface Pathfinder {
 	stop: () => void,
 	findPath: (position: Position) => Promise<PathfindingResult>,
-	renderPath: (a: Position, b: Position) => NodeBase[],
+	renderPath: (a: Position, b: Position) => Required<NodeBase>[],
 	updatePath: (last: Position, start: Position, newGrid: Uint8ClampedArray) => Promise<null | PathfindingResult>,
 };
 
@@ -91,17 +91,37 @@ export const useGameState = create<GameState>()(persist((set) => ({
 
 export const playRound = () => useGameState.setState(state => {
 	const { isPathfinding, pathfinder, path, playerPos, targetPos, set } = state;
-	const { grid } = useLevelState.getState();
+	const { grid: newGrid, size } = useLevelState.getState();
 	const nextPos = path?.[0];
-	if (isPathfinding || !path || !grid || !pathfinder || !nextPos) return state;
+	const nextNext = path?.[1];
+	if (isPathfinding || !path || !newGrid || !pathfinder || !nextPos) return state;
 
-	if (path.length === 1) {
+	if (path.length === 1 || !nextNext) {
 		return {
 			isPathfinding: false,
 			isPlaying: false,
 			path: null,
 			playerPos: nextPos,
 		};
+	}
+
+	const grid = pathfinder.params.grid;
+	const inRadius = getRadius(nextPos, pathfinder.params);
+	for (const { x, y } of inRadius) {
+		const next = newGrid[y * size + x];
+		if (next !== grid[y * size + x])
+			grid[y * size + x] = next;
+	}
+	const mask = renderCurveGridMask(nextNext.curve, state);
+	const newCost = applyMask(nextPos, nextNext.curve, mask, pathfinder.params);
+
+	if (newCost?.cost === nextNext.cost!) {
+		return {
+			isPathfinding: false,
+			path: path.slice(1),
+			playerPos: nextPos,
+		};
+
 	}
 
 	pathfinder.updatePath(playerPos, nextPos, grid).then(res => {
@@ -126,7 +146,7 @@ export const playRound = () => useGameState.setState(state => {
 export const findPath = (force=true) => useGameState.setState(state => {
 	const { addResult, set, playerPos, targetPos } = state;
 	const { grid, size } = useLevelState.getState();
-	if (!grid || (state.isPathfinding && !force))
+	if (!grid || (state.isPathfinding && !force) || posEqual(playerPos, targetPos))
 		return state;
 	state.pathfinder?.stop();
 
@@ -263,7 +283,7 @@ export function neighborsUnaligned(pos: Position, params: PathfinderParams, over
 export function neighborsFactory(params: PathfinderParams, reverse=false, ignoreWalls=false) {
 	const { state, size } = params;
 	const { neighborsRadius, rotNumber } = state;
-	const curves: PathCurve[][] = Array(rotNumber).fill(null).map(() => []);
+	const curves: PathCurve[][][] = Array(rotNumber).fill(null).map(() => []);
 
 	for (let rot0 = 0; rot0 < rotNumber; ++rot0) {
 		const pos0 = { x: 0, y: 0, rot: rot0 };
@@ -273,26 +293,29 @@ export function neighborsFactory(params: PathfinderParams, reverse=false, ignore
 					continue;
 				for (let rot = 0; rot < rotNumber; ++rot) {
 					const bunch = computeCurves(pos0, { x, y, rot }, state);
-					curves[rot0].push(...bunch);
+					curves[rot0].push(bunch);
 				}
 			}
 		}
 	}
-	const rendered = curves.map(forRot => forRot.map(c => 
-		({ curve: c, mask: renderCurveGridMask(c, state) })));
+	const rendered = curves.map(forRot => forRot.map(cs => cs.map(c =>
+		({ curve: c, mask: renderCurveGridMask(c, state) }))));
 
-	return (pos: Position) => rendered[pos.rot].map(({ curve, mask }) => {
-		const tx = curve.target.x + pos.x;
-		const ty = curve.target.y + pos.y;
-		const trot = curve.target.rot;
-
-		if (tx < 0 || tx >= size)
-			return null;
-		if (ty < 0 || ty >= size)
-			return null;
-
-		const res = applyMask(pos, curve, mask, params, ignoreWalls, reverse);
-		return res && { x: tx, y: ty, rot: trot, ...res };
+	return (pos: Position) => rendered[pos.rot].map(cs => {
+		const options = cs.map(({ curve, mask }) => {
+			const tx = curve.target.x + pos.x;
+			const ty = curve.target.y + pos.y;
+			const trot = curve.target.rot;
+	
+			if (tx < 0 || tx >= size)
+				return null;
+			if (ty < 0 || ty >= size)
+				return null;
+	
+			const res = applyMask(pos, curve, mask, params, ignoreWalls, reverse);
+			return res && { x: tx, y: ty, rot: trot, ...res };
+		});
+		return options.filter(r => r).sort((a, b) => a!.cost - b!.cost)[0];
 	}).filter((a): a is Position & {
 		curve: PathCurve,
 		cost: number
