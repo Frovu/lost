@@ -192,7 +192,7 @@ export default function Examine() {
 		</mesh>}
 		{/* @ts-ignore */}
 		{allCurves && allCurves.map(p => <line geometry={p} position={[start.x, start.y, 0]}>
-			<lineBasicMaterial color='rgb(100,50,50)' opacity={.8} transparent/>
+			<lineBasicMaterial color='rgb(150,50,50)' opacity={1} transparent/>
 		</line>) }
 		{/* @ts-ignore */}
 		{visuals?.path && <line geometry={visuals.path} position={[start.x, start.y, 0]}>
@@ -229,7 +229,7 @@ export default function Examine() {
 		{visible && visible.map(({ x, y }) => {
 			return <mesh position={[x, y, 0]}>
 				<boxGeometry args={[1, 1, 0]}/>
-				<meshBasicMaterial color='blue' opacity={.18} transparent/>
+				<meshBasicMaterial color='blue' opacity={.15} transparent/>
 			</mesh>;})}
 	</Canvas></>;
 }

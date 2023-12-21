@@ -29,9 +29,9 @@ export function Level(callbacks: Partial<MeshProps>) {
 	useEffect(() => {
 		for (let i = 0; i < size * size; ++i) {
 			const v = overlayGrid?.[i] ?? 0;
-			overlayTextureData[i * 4] = v === 1 ? 255 : 0;
+			overlayTextureData[i * 4] = v === 1 ? 255 : v === 2 ? 100 : 0;
 			overlayTextureData[i * 4 + 1] = v === 3 ? 255 : 0;
-			overlayTextureData[i * 4 + 2] = v === 2 ? 255 : 0;
+			overlayTextureData[i * 4 + 2] = v === 2 ? 105 : 0;
 			overlayTextureData[i * 4 + 3] = v === 0 ? 0 : 128;
 		}
 		overlayTexture.needsUpdate = true; 

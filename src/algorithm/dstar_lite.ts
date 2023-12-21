@@ -223,11 +223,12 @@ export default class DstarLite implements Pathfinder {
 	async updatePath(start: Position) {
 		const { graph, allNeighbors } = this;
 	
-		this.start = start;
+		// check if unaligned goal was obstructed
 		this.goal.rhs = Infinity;
-		this.goal = this.closestAligned(this.goal, start);
-		this.updateNode(this.goal);
+		this.goal = this.closestAligned(this.goal, this.start);
+		this.start = start;
 		this.goal.rhs = 0;
+		this.updateNode(this.goal);
 
 		console.log('update path');
 
@@ -239,6 +240,7 @@ export default class DstarLite implements Pathfinder {
 		}
 		s.rhs = Infinity;
 		this.updateNode(s);
+		this.updateNode(this.goal);
 
 		return await this.findPath(start);
 	};
