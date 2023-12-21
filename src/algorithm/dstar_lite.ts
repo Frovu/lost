@@ -31,7 +31,7 @@ function compare(a: Node, b: Node) {
 function heuristicFoo(pos: Position, target: Position, rotNumber: number, multi: number) {
 	const dist = Math.sqrt((target.x - pos.x) ** 2 + (target.y - pos.y) ** 2);
 	const rotDiff = Math.abs(target.rot - pos.rot) / rotNumber;
-	return dist * multi + rotDiff * 4;
+	return dist * multi + rotDiff * 2;
 }
 
 export default class DstarLite implements Pathfinder {
@@ -120,13 +120,11 @@ export default class DstarLite implements Pathfinder {
 			if (!isFinite(cur.rhs) || cur === target)
 				return path;
 			let min = cur as Required<NodeBase>, minR = Infinity;
-			for (const p of neighbors(cur)) {
-				const node = this.graph![p.y][p.x][p.rot];
-				const r = node.g + p.cost;
+			for (const { x, y, rot, cost, curve, mask } of neighbors(cur)) {
+				const node = this.graph![y][x][rot];
+				const r = node.g + cost;
 				if (!min || minR > r) {
-					node.curve = p.curve;
-					node.cost = p.cost;
-					min = node as any;
+					min = { ...node, cost, curve, mask };
 					minR = r;
 				}
 			}

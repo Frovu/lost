@@ -6,16 +6,18 @@ import DstarLite from './algorithm/dstar_lite';
 
 export const algoOptions = ['A*', 'D* lite'] as const;
 export const actions = ['draw', 'set goal', 'set pos'] as const;
-export const REVERSE_MULTIPLIER = 1.5;
+export const REVERSE_MULTIPLIER = 2;
 
 export type Coords = { x: number, y: number };
 export type Position = { x: number, y: number, rot: number };
 
 export const posEqual = (a: Position, b: Position) => a.x === b.x && a.y === b.y && a.rot === b.rot;
 
+export type Mask = { x: number, y: number, w: number }[];
 export type NodeBase = Position & {
 	curve?: PathCurve,
-	cost?: number
+	cost?: number,
+	mask?: Mask
 };
 
 const defaultState = {
@@ -93,7 +95,6 @@ export const playRound = () => useGameState.setState(state => {
 	const { isPathfinding, pathfinder, path, targetPos, set } = state;
 	const { grid: newGrid, size } = useLevelState.getState();
 	const nextPos = path?.[0];
-	const nextNext = path?.[1];
 	if (isPathfinding || !path || !newGrid || !pathfinder || !nextPos) return state;
 
 	if (path.length <= 1) {
@@ -114,10 +115,19 @@ export const playRound = () => useGameState.setState(state => {
 			grid[y * size + x] = next;
 	}
 
-	const mask = renderCurveGridMask(nextNext!.curve, state);
-	const newCost = applyMask(nextPos, nextNext!.curve, mask, pathfinder.params);
+	const depth = 3;
+	const foreseeObstacle = (i=0): boolean => {
+		if (i >= depth || path.length <= i + 1)
+			return false;
+		if (foreseeObstacle(i + 1))
+			return true;
+		const cur = path[i];
+		const next = path[i + 1];
+		const cost = applyMask(cur, next.curve, next.mask, pathfinder.params);
+		return next.cost !== cost?.cost;
+	};
 
-	if (posEqual(path.at(-1)!, targetPos) && newCost?.cost === nextNext!.cost) {
+	if (posEqual(path.at(-1)!, targetPos) && !foreseeObstacle()) {
 		return {
 			isPathfinding: false,
 			path: path.slice(1),
@@ -130,10 +140,8 @@ export const playRound = () => useGameState.setState(state => {
 		console.log('updated in', performance.now() - t0);
 		if (res?.aborted) {
 			set('path', null);
-		} else if (res) {
-			set('path', pathfinder.renderPath(nextPos, targetPos));
 		} else {
-			set('path', path.slice(1));
+			set('path', pathfinder.renderPath(nextPos, targetPos));
 		}
 		set('isPathfinding', false);
 	});
@@ -253,7 +261,7 @@ export function applyMask(pos: Position, curve: PathCurve, mask: ReturnType<type
 		cost += (1 + c * costMulti / 256) * w;
 	}
 	cost *= reverse !== curve.reverse ? REVERSE_MULTIPLIER : 1;
-	return { curve, cost };
+	return { curve, cost, mask };
 }
 
 export function neighborsUnaligned(pos: Position, params: PathfinderParams, overrideRadius?: number) { 
@@ -321,6 +329,7 @@ export function neighborsFactory(params: PathfinderParams, reverse=false, ignore
 		return options.filter(r => r).sort((a, b) => a!.cost - b!.cost)[0];
 	}).filter((a): a is Position & {
 		curve: PathCurve,
-		cost: number
+		cost: number,
+		mask: Mask
 	} => a != null);
 }
