@@ -90,14 +90,15 @@ export const useGameState = create<GameState>()(persist((set) => ({
 }));
 
 export const playRound = () => useGameState.setState(state => {
-	const { isPathfinding, pathfinder, path, playerPos, targetPos, set } = state;
+	const { isPathfinding, pathfinder, path, targetPos, set } = state;
 	const { grid: newGrid, size } = useLevelState.getState();
 	const nextPos = path?.[0];
 	const nextNext = path?.[1];
 	if (isPathfinding || !path || !newGrid || !pathfinder || !nextPos) return state;
 
-	if (path.length <= 2 && posEqual(path.at(-1)!, targetPos)) {
+	if (path.length <= 1) {
 		return {
+			results: [],
 			isPathfinding: false,
 			isPlaying: path.length > 1,
 			path: path.length > 1 ? path.slice(1) : null,
@@ -113,7 +114,20 @@ export const playRound = () => useGameState.setState(state => {
 			grid[y * size + x] = next;
 	}
 
-	pathfinder.updatePath(playerPos, nextPos, grid).then(res => {
+	const mask = renderCurveGridMask(nextNext!.curve, state);
+	const newCost = applyMask(nextPos, nextNext!.curve, mask, pathfinder.params);
+
+	if (posEqual(path.at(-1)!, targetPos) && newCost?.cost === nextNext!.cost) {
+		return {
+			isPathfinding: false,
+			path: path.slice(1),
+			playerPos: nextPos,
+		};
+	}
+
+	const t0 = performance.now();
+	pathfinder.updatePath(nextPos).then(res => {
+		console.log('updated in', performance.now() - t0);
 		if (res?.aborted) {
 			set('path', null);
 		} else if (res) {

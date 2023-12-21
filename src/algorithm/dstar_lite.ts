@@ -1,6 +1,6 @@
 import { PriorityQueue } from '@datastructures-js/priority-queue';
 import { NodeBase, Pathfinder, PathfinderParams, PathfindingResult, Position, applyMask,
-	closestNode, distance, getRadius, neighborsFactory, neighborsUnaligned, posEqual, useGameState } from '../game';
+	closestNode, distance, neighborsFactory, neighborsUnaligned, posEqual, useGameState } from '../game';
 import { animatePathfinding } from '../level';
 import { computeCurves, renderCurveGridMask } from '../curves';
 
@@ -204,7 +204,6 @@ export default class DstarLite implements Pathfinder {
 					}
 					meta[node.y * size + node.x] = 3;
 					await animatePathfinding(meta.slice());
-					// await new Promise(res => setTimeout(res, 10));
 				}
 			} else {
 				if (totalVisits % 500 === 0)
@@ -223,9 +222,8 @@ export default class DstarLite implements Pathfinder {
 		};
 	};
 
-	async updatePath(last: Position, start: Position, newGrid: Uint8ClampedArray) {
-		const { params, graph, succ, allNeighbors } = this;
-		// const { state, grid, size } = params;
+	async updatePath(start: Position) {
+		const { graph, allNeighbors } = this;
 	
 		this.start = start;
 		this.goal.rhs = Infinity;
@@ -233,34 +231,17 @@ export default class DstarLite implements Pathfinder {
 		this.updateNode(this.goal);
 		this.goal.rhs = 0;
 
-		// if (!somethingChanged)
-		// 	return null;
-
 		console.log('update path');
 
-		const l = this.graph[last.y]?.[last.x]?.[last.rot];
-		if (l) l.g = l.rhs = Infinity;
 		const s = this.graph[start.y][start.x][start.rot];
-		// for (const node of this.queue.toArray()) {
-		// 	this.calculateKey(node);
-		// }
 		for (const { x, y, rot } of allNeighbors(s)) {
 			const node = graph[y][x][rot];
-			for (const nn of allNeighbors(s)) {
-				const nnode = graph[nn.y][nn.x][nn.rot];
-				nnode.g = Infinity;
-				if (nn !== nnode)
-					this.updateNode(nnode);
-			}
 			node.g = Infinity;
-			node.rhs = Infinity;
 			this.updateNode(node);
 		}
 		s.rhs = Infinity;
 		this.updateNode(s);
 
-		const res = await this.findPath(start);
-		return res
-
+		return await this.findPath(start);
 	};
 }

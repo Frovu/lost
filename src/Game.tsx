@@ -5,7 +5,6 @@ import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import { Coords, Position, actions, closestNode, findPath, initRandomLevel, playRound, posEqual, useGameState } from './game';
 import { drawCurveSegment } from './curves';
-import DstarLite from './algorithm/dstar_lite';
 
 const ANIM_STEPS = 24;
 
@@ -216,9 +215,6 @@ export default function Game() {
 			}
 		},
 		onPointerMove: e => {
-			const graph = (pathfinder as DstarLite)?.graph;
-			const nodes = graph?.[Math.round(e.point.y)]?.[Math.round(e.point.x)]?.filter(n => isFinite(n.g));
-			// console.log(nodes?.map(n => [n.x, n.y, n.g.toFixed(2), n.rhs.toFixed(2)].join(', ')))
 			if (action?.startsWith('set')) {
 				const which = action === 'set goal' ? 'targetPos' : 'playerPos';
 				if (stage === 0) {
@@ -242,7 +238,7 @@ export default function Game() {
 		onPointerLeave: () => {
 			finishDrawing();
 		},
-	}}/>, [action, drawObstacle, finishDrawing, pathfinder, set, size, stage, startDrawing, state]);
+	}}/>, [action, drawObstacle, finishDrawing, set, size, stage, startDrawing, state]);
 
 	return <Canvas flat orthographic onContextMenu={e => e.preventDefault()}>
 		{level}
