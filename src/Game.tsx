@@ -177,7 +177,6 @@ export default function Game() {
 			return;
 		if (action && action !== 'draw')
 			set('action', null);
-		console.log(animationStep)
 		if (animationStep >= ANIM_STEPS) {
 			setAnimationStep(0);
 			playRound();

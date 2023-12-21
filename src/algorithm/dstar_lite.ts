@@ -31,7 +31,7 @@ function compare(a: Node, b: Node) {
 function heuristicFoo(pos: Position, target: Position, rotNumber: number, multi: number) {
 	const dist = Math.sqrt((target.x - pos.x) ** 2 + (target.y - pos.y) ** 2);
 	const rotDiff = Math.abs(target.rot - pos.rot) / rotNumber;
-	return dist * 1.5 * multi + rotDiff * 4;
+	return dist * multi + rotDiff * 4;
 }
 
 export default class DstarLite implements Pathfinder {
@@ -160,9 +160,9 @@ export default class DstarLite implements Pathfinder {
 			const node = queue.pop();
 			totalVisits++;
 			
-			node.visists ++;
-			if (node.visists > 3)
-				continue;
+			// node.visists ++;
+			// if (node.visists > 3)
+			// 	continue;
 
 			if (this.stopFlag || totalVisits > (limit ?? 99999)) {
 				if (params.animate)
@@ -204,7 +204,7 @@ export default class DstarLite implements Pathfinder {
 					}
 					meta[node.y * size + node.x] = 3;
 					await animatePathfinding(meta.slice());
-					await new Promise(res => setTimeout(res, 10));
+					// await new Promise(res => setTimeout(res, 10));
 				}
 			} else {
 				if (totalVisits % 500 === 0)
@@ -228,27 +228,38 @@ export default class DstarLite implements Pathfinder {
 		// const { state, grid, size } = params;
 	
 		this.start = start;
-		// this.km += this.heuristic(last, start) / 4;
+		this.goal.rhs = Infinity;
+		this.goal = this.closestAligned(this.goal, start);
+		this.updateNode(this.goal);
+		this.goal.rhs = 0;
 
 		// if (!somethingChanged)
 		// 	return null;
 
 		console.log('update path');
 
+		const l = this.graph[last.y]?.[last.x]?.[last.rot];
+		if (l) l.g = l.rhs = Infinity;
 		const s = this.graph[start.y][start.x][start.rot];
-		s.g = Infinity;
-		for (const node of this.queue.toArray())
-			this.calculateKey(node);
+		// for (const node of this.queue.toArray()) {
+		// 	this.calculateKey(node);
+		// }
 		for (const { x, y, rot } of allNeighbors(s)) {
 			const node = graph[y][x][rot];
+			for (const nn of allNeighbors(s)) {
+				const nnode = graph[nn.y][nn.x][nn.rot];
+				nnode.g = Infinity;
+				if (nn !== nnode)
+					this.updateNode(nnode);
+			}
+			node.g = Infinity;
+			node.rhs = Infinity;
 			this.updateNode(node);
 		}
+		s.rhs = Infinity;
 		this.updateNode(s);
 
 		const res = await this.findPath(start);
-		console.log(res)
-		console.log(s, succ(s).map(n => this.graph[n.y][n.x][n.rot]).filter(n => isFinite(n.g)))
-		console.log(this.renderPath(start, this.goal))
 		return res
 
 	};

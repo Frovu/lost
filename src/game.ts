@@ -96,11 +96,11 @@ export const playRound = () => useGameState.setState(state => {
 	const nextNext = path?.[1];
 	if (isPathfinding || !path || !newGrid || !pathfinder || !nextPos) return state;
 
-	if (path.length === 1 || !nextNext) {
+	if (path.length <= 2 && posEqual(path.at(-1)!, targetPos)) {
 		return {
 			isPathfinding: false,
-			isPlaying: false,
-			path: null,
+			isPlaying: path.length > 1,
+			path: path.length > 1 ? path.slice(1) : null,
 			playerPos: nextPos,
 		};
 	}
@@ -111,17 +111,6 @@ export const playRound = () => useGameState.setState(state => {
 		const next = newGrid[y * size + x];
 		if (next !== grid[y * size + x])
 			grid[y * size + x] = next;
-	}
-	const mask = renderCurveGridMask(nextNext.curve, state);
-	const newCost = applyMask(nextPos, nextNext.curve, mask, pathfinder.params);
-
-	if (newCost?.cost === nextNext.cost!) {
-		return {
-			isPathfinding: false,
-			path: path.slice(1),
-			playerPos: nextPos,
-		};
-
 	}
 
 	pathfinder.updatePath(playerPos, nextPos, grid).then(res => {
